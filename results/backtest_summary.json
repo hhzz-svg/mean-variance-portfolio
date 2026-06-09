@@ -1,0 +1,95 @@
+{
+  "config": {
+    "n_days": 2520,
+    "n_assets": 8,
+    "estimation_window_L": 252,
+    "rebalance_R": 21,
+    "risk_free_annual": 0.03,
+    "n_rebalances": 108,
+    "n_oos_days": 2268
+  },
+  "performance": {
+    "等权 1/N": {
+      "oos_ann_ret": 0.112732,
+      "oos_ann_vol": 0.183686,
+      "oos_sharpe": 0.450402,
+      "oos_max_drawdown": -0.474209,
+      "avg_turnover": 0.0,
+      "in_sample_sharpe": 0.390188
+    },
+    "GMV（样本Σ）": {
+      "oos_ann_ret": 0.059017,
+      "oos_ann_vol": 0.161157,
+      "oos_sharpe": 0.180054,
+      "oos_max_drawdown": -0.405775,
+      "avg_turnover": 0.060006,
+      "in_sample_sharpe": 0.229883
+    },
+    "GMV（收缩Σ）": {
+      "oos_ann_ret": 0.061963,
+      "oos_ann_vol": 0.160936,
+      "oos_sharpe": 0.198607,
+      "oos_max_drawdown": -0.405018,
+      "avg_turnover": 0.055745,
+      "in_sample_sharpe": 0.230669
+    },
+    "切点（样本μ,Σ）": {
+      "oos_ann_ret": -1.631237,
+      "oos_ann_vol": 10.092052,
+      "oos_sharpe": -0.164608,
+      "oos_max_drawdown": -38.273787,
+      "avg_turnover": 24.291483,
+      "in_sample_sharpe": 0.474878
+    },
+    "切点（收缩Σ）": {
+      "oos_ann_ret": 1.813829,
+      "oos_ann_vol": 4.828936,
+      "oos_sharpe": 0.369404,
+      "oos_max_drawdown": -1.102858,
+      "avg_turnover": 18.805217,
+      "in_sample_sharpe": 0.474876
+    },
+    "长仓最小方差": {
+      "oos_ann_ret": 0.065955,
+      "oos_ann_vol": 0.160813,
+      "oos_sharpe": 0.223582,
+      "oos_max_drawdown": -0.417776,
+      "avg_turnover": 0.047676,
+      "in_sample_sharpe": 0.244962
+    },
+    "Oracle切点（真μ）": {
+      "oos_ann_ret": 0.189357,
+      "oos_ann_vol": 0.32517,
+      "oos_sharpe": 0.490073,
+      "oos_max_drawdown": -0.644476,
+      "avg_turnover": 0.125118,
+      "in_sample_sharpe": 0.474876
+    }
+  },
+  "wealth_plot_excluded": [
+    "切点（样本μ,Σ）",
+    "切点（收缩Σ）"
+  ],
+  "self_checks": {
+    "无前视/持有窗平铺": {
+      "pass": true,
+      "detail": "首再平衡=252(=L), 间隔恒=21, 样本外天数=2268(=T-L=2268)"
+    },
+    "样本外长度自洽": {
+      "pass": true,
+      "detail": "各策略样本外天数=[2268]"
+    },
+    "权重和为1": {
+      "pass": true,
+      "detail": "max|Σwᵢ − 1|=5.68e-14"
+    },
+    "换手率非负": {
+      "pass": true,
+      "detail": "min 平均换手=0.0000 (≥0)"
+    },
+    "等权=1/n": {
+      "pass": true,
+      "detail": "max|wᵢ − 1/n|=0.00e+00"
+    }
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "assets": [
+    "TECH-A",
+    "TECH-B",
+    "TECH-C",
+    "FIN-A",
+    "FIN-B",
+    "CONS-A",
+    "CONS-B",
+    "CONS-C"
+  ],
+  "sectors": {
+    "TECH-A": "科技",
+    "TECH-B": "科技",
+    "TECH-C": "科技",
+    "FIN-A": "金融",
+    "FIN-B": "金融",
+    "CONS-A": "消费",
+    "CONS-B": "消费",
+    "CONS-C": "消费"
+  },
+  "risk_free_annual": 0.03,
+  "shrinkage_delta": 0.011048697164941806,
+  "condition_number": {
+    "sample": 11.225387344711425,
+    "shrunk": 10.904348839641195
+  },
+  "mu_annual_pct": {
+    "TECH-A": 18.0,
+    "TECH-B": 15.0,
+    "TECH-C": 12.0,
+    "FIN-A": 8.0,
+    "FIN-B": 6.0,
+    "CONS-A": 10.0,
+    "CONS-B": 7.0,
+    "CONS-C": 5.0
+  },
+  "frontier_scalars": {
+    "A": 2.7046073066661003,
+    "B": 0.34616757976301477,
+    "C": 42.49746388843144,
+    "D": 7.396343537052773
+  },
+  "GMV": {
+    "weights": {
+      "TECH-A": -0.0349,
+      "TECH-B": 0.0086,
+      "TECH-C": 0.0249,
+      "FIN-A": 0.1487,
+      "FIN-B": 0.2153,
+      "CONS-A": 0.09,
+      "CONS-B": 0.2228,
+      "CONS-C": 0.3245
+    },
+    "ret": 0.0636416166801507,
+    "vol": 0.15339757470085855
+  },
+  "tangency_max_sharpe": {
+    "weights": {
+      "TECH-A": 0.5151,
+      "TECH-B": 0.3343,
+      "TECH-C": 0.1075,
+      "FIN-A": 0.1424,
+      "FIN-B": -0.2669,
+      "CONS-A": 0.5077,
+      "CONS-B": 0.0234,
+      "CONS-C": -0.3635
+    },
+    "ret": 0.18537626051638803,
+    "vol": 0.3296646625358506,
+    "sharpe": 0.47131609230179794
+  },
+  "long_only_min_var": {
+    "weights": {
+      "TECH-A": 0.0,
+      "TECH-B": 0.0,
+      "TECH-C": 0.0136,
+      "FIN-A": 0.141,
+      "FIN-B": 0.2095,
+      "CONS-A": 0.0918,
+      "CONS-B": 0.2216,
+      "CONS-C": 0.3225
+    },
+    "ret": 0.06630078755307074,
+    "vol": 0.15376838137280652,
+    "sharpe": 0.2360744597100274
+  },
+  "self_checks": {
+    "Sigma_正定": {
+      "pass": true,
+      "detail": "最小特征值=2.739e-02 (>0)"
+    },
+    "GMV方差=1/C": {
+      "pass": true,
+      "detail": "|wᵀΣw − 1/C|=0.00e+00"
+    },
+    "权重和为1": {
+      "pass": true,
+      "detail": "max|Σwᵢ − 1|=1.11e-16"
+    },
+    "长仓非负": {
+      "pass": true,
+      "detail": "min wᵢ=0.00e+00 (≥0)"
+    },
+    "解析KKT残差": {
+      "pass": true,
+      "detail": "‖Σw − λμ − γ𝟙‖=1.20e-17"
+    },
+    "PGD对比scipy": {
+      "pass": true,
+      "detail": "max|w_PGD − w_scipy|=4.76e-06"
+    }
+  }
+}

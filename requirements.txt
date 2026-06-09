@@ -1,0 +1,5 @@
+numpy>=1.24
+matplotlib>=3.7
+pandas>=2.0
+# scipy 仅用于 main.py 中对自研数值解的独立交叉验证（核心求解器不依赖它）
+scipy>=1.10
