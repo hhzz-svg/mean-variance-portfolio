@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  self-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      # 两个脚本的退出码都与数值自检挂钩：任一自检失败 → 非零退出 → CI 红
+      - name: 第一幕：样本内主流程 + 6 项自检
+        run: python main.py
+
+      - name: 第二幕：样本外滚动回测 + 5 项自检
+        run: python experiment_backtest.py

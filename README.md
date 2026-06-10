@@ -2,6 +2,7 @@
 
 > Markowitz mean–variance portfolio optimization, built from scratch (NumPy-only) and studied from a **matrix-algorithms** viewpoint — then stress-tested out-of-sample.
 
+[![CI](https://github.com/hhzz-svg/mean-variance-portfolio/actions/workflows/ci.yml/badge.svg)](https://github.com/hhzz-svg/mean-variance-portfolio/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
 ![NumPy](https://img.shields.io/badge/built%20with-NumPy-013243?logo=numpy&logoColor=white)
 ![No black-box solver](https://img.shields.io/badge/optimizer-from%20scratch-orange)
@@ -28,7 +29,15 @@ for the long-only (no-short) case, and **Ledoit–Wolf shrinkage** covariance. A
 no-look-ahead **walk-forward backtest** then shows why the in-sample optimum fails in
 practice — estimation error in `μ` collapses the max-Sharpe portfolio (OOS Sharpe goes
 **negative**) while naïve **1/N wins**, reproducing DeMiguel et al. (2009). All solvers are
-cross-validated against SciPy and ship with numerical self-checks.
+cross-validated against SciPy and ship with numerical self-checks (run on every push by CI).
+
+```bash
+pip install -r requirements.txt
+python main.py                   # Act 1 — in-sample: frontier, GMV, tangency + 6 self-checks
+python experiment_backtest.py    # Act 2 — out-of-sample walk-forward backtest + 5 self-checks
+```
+
+Full math derivation (in Chinese): [docs/derivation.pdf](docs/derivation.pdf).
 
 ---
 
@@ -53,7 +62,8 @@ cross-validated against SciPy and ship with numerical self-checks.
 
 核心算法**纯 numpy 从零实现**，并通过 6 项数值自检 + 与 **SciPy SLSQP** 的独立交叉验证
 （最大权重偏差 `< 5e-6`）。详见 [`results/summary.json`](results/summary.json) 与
-中文 LaTeX 推导 [`docs/derivation.tex`](docs/derivation.tex)（10 页 PDF）。
+中文 LaTeX 数学推导：**[📄 直接看 PDF](docs/derivation.pdf)**（10 页，源文件
+[`docs/derivation.tex`](docs/derivation.tex)）。
 
 ### 第二幕 · 样本外：估计误差让"最优"翻车
 
@@ -110,6 +120,7 @@ cd docs && xelatex derivation.tex && xelatex derivation.tex
 .
 ├── README.md                   本文件
 ├── LICENSE                     MIT
+├── .github/workflows/ci.yml    CI：每次 push 自动跑两幕全部 11 项自检
 ├── requirements.txt            依赖
 ├── main.py                     第一幕：数据→估计→解析/数值求解→图像→自检→导出
 ├── experiment_backtest.py      第二幕：样本外滚动回测 + 自检
@@ -133,7 +144,7 @@ cd docs && xelatex derivation.tex && xelatex derivation.tex
 
 ## 交付物对应
 
-1. **数学推导（LaTeX）**：[docs/derivation.tex](docs/derivation.tex) → `derivation.pdf`
+1. **数学推导（LaTeX）**：[docs/derivation.tex](docs/derivation.tex) → [docs/derivation.pdf](docs/derivation.pdf)
 2. **代码**：[main.py](main.py) + [experiment_backtest.py](experiment_backtest.py) + [src/](src/)（核心算法纯 numpy 从零实现）
 3. **图像**：[figures/](figures/) 共 9 张（有效前沿、可行域、PGD 收敛、协方差分析、权重对比 + 回测净值/夏普/换手/滚动权重）
 4. **现实问题落地**：从抽象矩阵优化到"如何配一篮子股票"，并用样本外实验解读分散化、做空约束、估计误差的真实代价
