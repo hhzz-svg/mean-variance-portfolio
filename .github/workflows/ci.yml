@@ -28,3 +28,9 @@ jobs:
 
       - name: 第三幕：协方差擂台 + bootstrap 显著性 + 8 项自检
         run: python experiment_covariance.py
+
+      - name: 第四幕：μ 收缩（Bayes-Stein/BL）+ 8 项自检
+        run: python experiment_mu_shrinkage.py
+
+      - name: 第五幕：维数扫描（RMT 翻案）+ 6 项自检
+        run: python experiment_dimension.py

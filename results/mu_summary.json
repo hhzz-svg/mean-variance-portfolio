@@ -1,0 +1,165 @@
+{
+  "config": {
+    "n_days": 2520,
+    "n_assets": 8,
+    "estimation_window_L": 252,
+    "rebalance_R": 21,
+    "risk_free_annual": 0.03,
+    "bootstrap": {
+      "block": 21,
+      "B": 2000,
+      "seed": 2024,
+      "benchmark": "等权 1/N"
+    }
+  },
+  "mu_diagnosis": {
+    "mean_error_annual": {
+      "sample": 0.7649,
+      "james_stein": 0.4862,
+      "equilibrium": 0.397
+    },
+    "w_shrink_range": [
+      0.3913,
+      0.8054
+    ]
+  },
+  "phi_sweep": {
+    "0.0": 0.4504,
+    "0.1": -0.3227,
+    "0.2": -0.4868,
+    "0.3": 0.3142,
+    "0.4": 0.0148,
+    "0.5": 0.1269,
+    "0.6": -0.0904,
+    "0.7": 0.1785,
+    "0.8": 0.307,
+    "0.9": 0.0199,
+    "1.0": 0.3694
+  },
+  "performance": {
+    "等权 1/N": {
+      "oos_sharpe": 0.450402,
+      "sharpe_ci": [
+        -0.234105,
+        1.151193
+      ],
+      "delta_vs_1N": 0.0,
+      "delta_ci": [
+        0.0,
+        0.0
+      ],
+      "p_value": 1.0,
+      "avg_turnover": 0.0,
+      "oos_max_drawdown": -0.474209
+    },
+    "GMV（收缩Σ）": {
+      "oos_sharpe": 0.198607,
+      "sharpe_ci": [
+        -0.449211,
+        0.838938
+      ],
+      "delta_vs_1N": -0.251795,
+      "delta_ci": [
+        -0.597376,
+        0.0831
+      ],
+      "p_value": 0.143928,
+      "avg_turnover": 0.055745,
+      "oos_max_drawdown": -0.405018
+    },
+    "切点（样本μ）": {
+      "oos_sharpe": 0.369404,
+      "sharpe_ci": [
+        -0.14972,
+        0.882705
+      ],
+      "delta_vs_1N": -0.080998,
+      "delta_ci": [
+        -0.941207,
+        0.764639
+      ],
+      "p_value": 0.873563,
+      "avg_turnover": 18.805217,
+      "oos_max_drawdown": -1.102858
+    },
+    "切点（James-Steinμ）": {
+      "oos_sharpe": 0.402989,
+      "sharpe_ci": [
+        -0.11601,
+        0.914231
+      ],
+      "delta_vs_1N": -0.047413,
+      "delta_ci": [
+        -0.90768,
+        0.794876
+      ],
+      "p_value": 0.921539,
+      "avg_turnover": 8.441205,
+      "oos_max_drawdown": -1.007301
+    },
+    "切点（均衡μ·BL先验）": {
+      "oos_sharpe": 0.450402,
+      "sharpe_ci": [
+        -0.234105,
+        1.151193
+      ],
+      "delta_vs_1N": -0.0,
+      "delta_ci": [
+        -0.0,
+        0.0
+      ],
+      "p_value": 0.936532,
+      "avg_turnover": 0.0,
+      "oos_max_drawdown": -0.474209
+    },
+    "Oracle切点（真μ）": {
+      "oos_sharpe": 0.490073,
+      "sharpe_ci": [
+        -0.200316,
+        1.17979
+      ],
+      "delta_vs_1N": 0.039671,
+      "delta_ci": [
+        -0.33807,
+        0.431251
+      ],
+      "p_value": 0.848576,
+      "avg_turnover": 0.125118,
+      "oos_max_drawdown": -0.644476
+    }
+  },
+  "self_checks": {
+    "JS收缩强度合法": {
+      "pass": true,
+      "detail": "w_shrink∈[0.391,0.805] ⊂ (0,1]"
+    },
+    "φ混合端点一致": {
+      "pass": true,
+      "detail": "max|φ=1 − 样本μ̂|=0.0e+00, max|φ=0 − BL先验|=0.0e+00"
+    },
+    "BL无观点=市场组合": {
+      "pass": true,
+      "detail": "max|w_BL − 1/n|=1.2e-15"
+    },
+    "回归保护_公共策略一致": {
+      "pass": true,
+      "detail": "4 对公共策略 max|日收益差|=0.0e+00"
+    },
+    "CI含点估计且口径一致": {
+      "pass": true,
+      "detail": "CI 全包含=True, max偏差=6.7e-16"
+    },
+    "bootstrap可复现": {
+      "pass": true,
+      "detail": "同种子 B=50 两遍逐元素相等"
+    },
+    "基准自检": {
+      "pass": true,
+      "detail": "Δ=0.0, p=1.0"
+    },
+    "JS降低μ误差": {
+      "pass": true,
+      "detail": "平均误差改善 0.2787（样本 0.765 → JS 0.486）"
+    }
+  }
+}

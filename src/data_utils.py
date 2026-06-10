@@ -217,3 +217,69 @@ def pca_factor_covariance(returns: np.ndarray) -> tuple[np.ndarray, dict]:
 
     Sigma = C_f * np.outer(s, s)
     return Sigma, {"k": k, "lambda_plus": lam_plus, "resid_min": resid_min}
+
+
+# ==========================================================================
+# μ 的收缩估计：既然实验证明"元凶是 μ"，就给 μ 开药方
+#
+# 与 Σ 的 Ledoit-Wolf 收缩完全对仗：把高方差的样本估计 μ̂ 向一个低方差的
+# 结构化目标收缩，用数据驱动的强度在偏差与方差之间换取更小的总误差。
+#
+#   1. js_shrunk_mu —— Jorion(1986) Bayes-Stein：目标 = GMV 隐含收益 μ₀·𝟙，
+#      收缩强度由 μ̂ 偏离目标的马氏距离决定（偏离越像噪声，收缩越狠）；
+#   2. equilibrium_mu —— Black-Litterman 先验：从"市场组合 = 等权"反推
+#      均衡隐含收益 π = r_f + δ·Σw_eq。定理：以 π 为输入的切点组合恰好
+#      还原 w_eq（无观点的 BL = 持有市场），实验中作为结构自检。
+# ==========================================================================
+def js_shrunk_mu(returns: np.ndarray) -> tuple[np.ndarray, dict]:
+    """Jorion (1986) Bayes-Stein 收缩期望收益（日频进、日频出）。
+
+        μ_BS = (1−ŵ)·μ̂ + ŵ·μ₀·𝟙,
+        μ₀   = 𝟙ᵀΣ⁻¹μ̂ / 𝟙ᵀΣ⁻¹𝟙          （GMV 隐含收益）
+        ŵ    = (n+2) / [ (n+2) + T·(μ̂−μ₀𝟙)ᵀΣ⁻¹(μ̂−μ₀𝟙) ]   ∈ (0,1]
+
+    Σ 用 Ledoit-Wolf 收缩估计（数值稳定），Σ⁻¹ 作用经 Cholesky 求解。
+    返回 (mu_bs_daily, info)，info 含 w_shrink / mu0_daily。
+    """
+    import analytic as an
+
+    X = np.asarray(returns, dtype=float)
+    T, n = X.shape
+    mu_hat = X.mean(axis=0)
+    Sigma, _ = ledoit_wolf_shrinkage(X)
+    ones = np.ones(n)
+
+    Sinv_mu = an.chol_solve(Sigma, mu_hat)
+    Sinv_1 = an.chol_solve(Sigma, ones)
+    mu0 = float(ones @ Sinv_mu) / float(ones @ Sinv_1)
+
+    dev = mu_hat - mu0 * ones
+    d2 = float(dev @ an.chol_solve(Sigma, dev))          # 马氏距离²
+    w = (n + 2.0) / ((n + 2.0) + T * d2)
+    w = float(min(max(w, 0.0), 1.0))
+
+    mu_bs = (1.0 - w) * mu_hat + w * mu0 * ones
+    return mu_bs, {"w_shrink": w, "mu0_daily": mu0}
+
+
+def equilibrium_mu(returns: np.ndarray, rf_daily: float) -> tuple[np.ndarray, dict]:
+    """Black-Litterman 先验：均衡隐含期望收益（日频进、日频出）。
+
+    取市场组合为等权 w_eq = 𝟙/n（合成市场无市值权重），反向优化：
+
+        π = r_f·𝟙 + δ·Σ w_eq,    δ = (r̄_mkt − r_f) / σ²_mkt
+
+    其中 r̄_mkt、σ²_mkt 为窗口内等权组合的样本均值与方差（风险厌恶 δ 的标准校准）。
+    返回 (pi_daily, info)，info 含 delta。
+    """
+    X = np.asarray(returns, dtype=float)
+    T, n = X.shape
+    w_eq = np.full(n, 1.0 / n)
+    Sigma, _ = ledoit_wolf_shrinkage(X)
+
+    r_mkt = X @ w_eq
+    var_mkt = float(r_mkt.var(ddof=1))
+    delta = (float(r_mkt.mean()) - rf_daily) / var_mkt if var_mkt > 0 else 1.0
+
+    pi = rf_daily + delta * (Sigma @ w_eq)
+    return pi, {"delta": float(delta)}

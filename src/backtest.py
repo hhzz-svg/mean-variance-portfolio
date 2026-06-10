@@ -79,28 +79,31 @@ STRATEGIES = {
 }
 
 
-def make_strategy(kind: str, sigma_key: str):
-    """构造以 est[sigma_key] 为协方差的 GMV / 切点策略函数。
+def make_strategy(kind: str, sigma_key: str, mu_key: str = "mu_hat"):
+    """构造以 est[sigma_key] 为协方差、est[mu_key] 为期望收益的 GMV / 切点策略函数。
 
-    供扩展实验（如协方差估计擂台）配合 extra_covs 组装新策略，
+    供扩展实验（协方差擂台、μ 收缩）配合 extra_covs / extra_mus 组装新策略，
     不触碰上面的 STRATEGIES 注册表。
     """
     def _fn(est):
         Sig = est[sigma_key]
+        mu = est[mu_key]
         if kind == "gmv":
-            return an.gmv_portfolio(est["mu_hat"], Sig)["weights"]
+            return an.gmv_portfolio(mu, Sig)["weights"]
         if kind == "tangency":
-            return an.tangency_portfolio(est["mu_hat"], Sig, est["rf"])["weights"]
+            return an.tangency_portfolio(mu, Sig, est["rf"])["weights"]
         raise ValueError(f"未知策略类型: {kind}")
     return _fn
 
 
 def estimate_window(win: np.ndarray, rf: float, mu_true: np.ndarray,
-                    extra_covs: dict | None = None) -> dict:
+                    extra_covs: dict | None = None,
+                    extra_mus: dict | None = None) -> dict:
     """对一个估计窗口（T×n 日收益）做年化 μ̂/Σ̂ 估计，返回策略所需的 est 包。
 
-    extra_covs：{名称: fn(日频窗口)→日频Σ} 的额外协方差估计量，
-    估计结果以 est["Sigma_<名称>"] 注入（统一年化），默认 None 行为不变。
+    extra_covs：{名称: fn(日频窗口)→日频Σ}，注入 est["Sigma_<名称>"]（统一年化）；
+    extra_mus ：{名称: fn(日频窗口)→日频μ}，注入 est["mu_<名称>"]（统一年化）。
+    两者默认 None 时行为不变。
     """
     mu_hat = du.annualize_mu(du.estimate_mu(win))
     Sigma_sample = du.annualize_cov(du.sample_covariance(win))
@@ -118,13 +121,17 @@ def estimate_window(win: np.ndarray, rf: float, mu_true: np.ndarray,
     if extra_covs:
         for name, fn in extra_covs.items():
             est[f"Sigma_{name}"] = du.annualize_cov(fn(win))
+    if extra_mus:
+        for name, fn in extra_mus.items():
+            est[f"mu_{name}"] = du.annualize_mu(fn(win))
     return est
 
 
 def run_backtest(R_all: np.ndarray, mu_true: np.ndarray,
                  L: int = 252, R: int = 21, rf_annual: float = 0.03,
                  strategies: dict | None = None,
-                 extra_covs: dict | None = None) -> dict:
+                 extra_covs: dict | None = None,
+                 extra_mus: dict | None = None) -> dict:
     """滚动回测主循环。
 
     参数
@@ -155,7 +162,7 @@ def run_backtest(R_all: np.ndarray, mu_true: np.ndarray,
         hold = R_all[t:t + R]                     # 持有窗 [t, t+R)，已实现收益
         if hold.shape[0] == 0:
             continue
-        est = estimate_window(win, rf_annual, mu_true, extra_covs)
+        est = estimate_window(win, rf_annual, mu_true, extra_covs, extra_mus)
         cond_sample.append(du.condition_number(est["Sigma_sample"]))
         cond_lw.append(du.condition_number(est["Sigma_lw"]))
         deltas.append(est["delta"])

@@ -110,6 +110,50 @@ def asset_sectors() -> dict[str, str]:
     return {name: sec for name, sec in ASSETS}
 
 
+def generate_universe(n_assets: int, n_days: int = 2520,
+                      seed: int = 7) -> tuple[pd.DataFrame, np.ndarray]:
+    """生成任意资产数的合成市场（维数扫描实验用）。
+
+    数据生成过程与 generate_returns 同构：1 个市场因子 + 3 个行业因子（轮转分配）
+    + 独立特质噪声；个股载荷从与原 8 资产相同量级的固定区间内随机抽取（种子固定）。
+    关键性质：**真实公共因子数恒为 4，与 n 无关**——n 增大时只有"名字"变多，
+    信号秩不变，这正是检验"维数升高时哪种 Σ̂ 估计先崩溃"的干净设定。
+
+    返回 (日收益 DataFrame, 真实年化 α 向量)。
+    """
+    rng = np.random.default_rng(seed)
+    sector_names = ["科技", "金融", "消费"]
+    sectors = [sector_names[i % 3] for i in range(n_assets)]
+    names = [f"{sec[:1]}{i:03d}" for i, sec in enumerate(sectors)]
+
+    # 载荷随机抽取（区间与原 8 资产手工取值同量级）
+    alpha_annual = rng.uniform(0.04, 0.18, size=n_assets)
+    beta_mkt = rng.uniform(0.70, 1.35, size=n_assets)
+    beta_sec = rng.uniform(0.40, 0.90, size=n_assets)
+    idio_vol = rng.uniform(0.009, 0.019, size=n_assets)
+    sigma_mkt = 0.010
+    sigma_sec = {"科技": 0.012, "金融": 0.007, "消费": 0.006}
+
+    f_mkt = rng.normal(0.0, sigma_mkt, size=n_days)
+    f_mkt -= f_mkt.mean()
+    f_sec = {}
+    for s in sector_names:
+        fs = rng.normal(0.0, sigma_sec[s], size=n_days)
+        f_sec[s] = fs - fs.mean()
+
+    returns = np.empty((n_days, n_assets))
+    alpha_daily = alpha_annual / TRADING_DAYS
+    for i in range(n_assets):
+        eps = rng.normal(0.0, idio_vol[i], size=n_days)
+        eps -= eps.mean()
+        returns[:, i] = (alpha_daily[i] + beta_mkt[i] * f_mkt
+                         + beta_sec[i] * f_sec[sectors[i]] + eps)
+
+    df = pd.DataFrame(returns, columns=names)
+    df.index.name = "day"
+    return df, alpha_annual
+
+
 if __name__ == "__main__":
     import os
     import sys

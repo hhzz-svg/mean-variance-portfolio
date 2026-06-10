@@ -199,6 +199,9 @@ _BT_COLORS = {
     "GMV（因子Σ）": "#e377c2",
     "切点（RMT裁剪Σ）": "#bcbd22",
     "切点（因子Σ）": "#ff9896",
+    "切点（样本μ）": "#9467bd",
+    "切点（James-Steinμ）": "#e7ba52",
+    "切点（均衡μ·BL先验）": "#393b79",
 }
 
 
@@ -463,6 +466,100 @@ def plot_delta_sharpe_bootstrap(path, delta_samples: dict, delta_stats: dict,
     ax.set_title("与基准的夏普差：bootstrap 分布、95% CI 与双侧 p 值")
     ax.legend(fontsize=9, loc="lower left")
     ax.grid(axis="x", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
+# --------------------------------------------------------------------------
+# 图H（第四幕）：μ 估计误差对比 + 收缩强度 φ 扫描曲线
+# --------------------------------------------------------------------------
+def plot_mu_diagnosis(path, method_errors: dict, phis, phi_sharpes,
+                      sharpe_1n, sharpe_oracle):
+    """method_errors: {方法: 逐窗 ‖μ̂−μ_true‖₂（年化）}；
+    phis/phi_sharpes: 收缩强度扫描（φ=0 均衡 → φ=1 样本μ̂）的样本外夏普。"""
+    fig, axes = plt.subplots(1, 2, figsize=(12.2, 4.9))
+
+    # (a) 各方法逐窗误差：均值柱 + 散点云
+    labels = list(method_errors.keys())
+    means = [float(np.mean(method_errors[l])) for l in labels]
+    colors = ["#d62728", "#e7ba52", "#393b79"]
+    x = np.arange(len(labels))
+    axes[0].bar(x, means, width=0.55, color=colors[:len(labels)],
+                alpha=0.75, edgecolor="k", lw=0.6, zorder=2)
+    rng = np.random.default_rng(3)
+    for i, l in enumerate(labels):
+        e = np.asarray(method_errors[l])
+        axes[0].scatter(np.full(len(e), x[i]) + rng.uniform(-0.16, 0.16, len(e)),
+                        e, s=7, color="k", alpha=0.30, zorder=3)
+    axes[0].set_xticks(x)
+    axes[0].set_xticklabels(labels, fontsize=9)
+    axes[0].set_ylabel(r"逐窗估计误差 $\|\hat{\mu}-\mu_{true}\|_2$（年化）")
+    axes[0].set_title("μ 估计误差：收缩显著缩小（柱=均值，点=逐窗）")
+    axes[0].grid(axis="y", alpha=0.3)
+
+    # (b) 收缩强度 φ 扫描：μ_φ = (1−φ)·π + φ·μ̂
+    axes[1].plot(phis, phi_sharpes, "o-", color="#1f77b4", lw=2.0, ms=5,
+                 label="切点（μ_φ，收缩Σ）")
+    axes[1].axhline(sharpe_1n, color="#7f7f7f", ls="--", lw=1.4,
+                    label=f"等权 1/N（={sharpe_1n:.2f}）")
+    axes[1].axhline(sharpe_oracle, color="#17becf", ls=":", lw=1.6,
+                    label=f"Oracle 真μ（={sharpe_oracle:.2f}）")
+    i_best = int(np.argmax(phi_sharpes))
+    axes[1].scatter([phis[i_best]], [phi_sharpes[i_best]], s=130, marker="*",
+                    color="#d62728", zorder=5,
+                    label=f"最优 φ*={phis[i_best]:.1f}（夏普={phi_sharpes[i_best]:.2f}）")
+    axes[1].set_xlabel("收缩强度 φ   （0=纯均衡先验 π → 1=纯样本 μ）")
+    axes[1].set_ylabel("样本外年化夏普")
+    axes[1].set_title("μ 向均衡收缩多少最好：φ 扫描")
+    axes[1].legend(fontsize=8.5, loc="lower left")
+    axes[1].grid(alpha=0.3)
+
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
+# --------------------------------------------------------------------------
+# 图I（第五幕）：维数相变——GMV 实现波动与条件数随资产数 n 的变化
+# --------------------------------------------------------------------------
+def plot_dimension_phase(path, n_list, vol_dict: dict, cond_dict: dict,
+                         T: int, vol_1n=None):
+    """n_list: 资产数序列（T 固定）；vol_dict: {Σ估计量: 各 n 的 GMV 样本外年化波动}；
+    cond_dict: {Σ估计量: 各 n 的条件数中位数}；vol_1n: 等权参照（可选）。"""
+    n_arr = np.asarray(n_list, dtype=float)
+    colors = {"样本协方差 S": "#d62728", "Ledoit-Wolf 收缩": "#2ca02c",
+              "RMT 裁剪": "#8c564b", "PCA 因子": "#e377c2"}
+    fig, axes = plt.subplots(1, 2, figsize=(12.6, 5.0))
+
+    # (a) GMV 样本外实现波动（GMV 的目标就是最小化它 → 直接度量 Σ̂ 质量）
+    for lab, v in vol_dict.items():
+        axes[0].plot(n_arr, _pct(v), "o-", lw=1.9, ms=5,
+                     color=colors.get(lab, "#333"), label=f"GMV（{lab}）")
+    if vol_1n is not None:
+        axes[0].plot(n_arr, _pct(vol_1n), "s--", lw=1.5, ms=4,
+                     color="#7f7f7f", label="等权 1/N（参照）")
+    axes[0].set_xscale("log")
+    axes[0].set_xticks(n_arr)
+    axes[0].set_xticklabels([f"{int(n)}\nq={n/T:.2f}" for n in n_arr], fontsize=8)
+    axes[0].set_xlabel(f"资产数 n（估计窗 T={T} 固定）")
+    axes[0].set_ylabel("GMV 样本外年化波动 (%)")
+    axes[0].set_title("维数升高时哪种 Σ 估计先崩溃（波动越低越好）")
+    axes[0].legend(fontsize=8.5)
+    axes[0].grid(alpha=0.3, which="both")
+
+    # (b) 条件数中位数
+    for lab, c in cond_dict.items():
+        axes[1].loglog(n_arr, c, "o-", lw=1.9, ms=5,
+                       color=colors.get(lab, "#333"), label=lab)
+    axes[1].set_xticks(n_arr)
+    axes[1].set_xticklabels([str(int(n)) for n in n_arr], fontsize=8)
+    axes[1].set_xlabel(f"资产数 n（T={T} 固定）")
+    axes[1].set_ylabel("条件数中位数 κ（对数轴）")
+    axes[1].set_title("病态程度的相变：q=n/T → 1 时样本协方差爆炸")
+    axes[1].legend(fontsize=8.5)
+    axes[1].grid(alpha=0.3, which="both")
+
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)

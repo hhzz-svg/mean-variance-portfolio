@@ -10,9 +10,9 @@
 ![Reproducible](https://img.shields.io/badge/seed-fixed%20·%20reproducible-success)
 
 把量化金融最经典的资产配置问题 —— **Markowitz 均值-方差模型** —— 建成一个**双目标规划**
-（同时 `max μᵀw` 收益、`min wᵀΣw` 风险），从**矩阵算法**视角完整求解：闭式解、从零实现的
-数值优化器、协方差收缩，再用**样本外滚动回测**验证"样本内最优为什么在现实中会翻车"，
-最后用**随机矩阵理论**与 **block bootstrap** 给整个故事补上谱分析与统计显著性的句号。
+（同时 `max μᵀw` 收益、`min wᵀΣw` 风险），从**矩阵算法**视角完整求解，再用五个互相衔接的
+实验把它"打碎再拼好"：样本外回测暴露估计误差 → 随机矩阵理论修 Σ → bootstrap 检验显著性
+→ Bayes-Stein/Black-Litterman 修 μ → 维数扫描找出每种方法的适用边界。
 
 ![样本外累计净值](figures/backtest_wealth.png)
 
@@ -33,20 +33,26 @@ practice — estimation error in `μ` collapses the max-Sharpe portfolio (OOS Sh
 cross-validated against SciPy and ship with numerical self-checks (run on every push by CI).
 A third act benchmarks four covariance estimators — sample, Ledoit–Wolf, **Marchenko–Pastur
 eigenvalue clipping**, PCA factor — and wraps every Sharpe in **joint block-bootstrap CIs**:
-on a single 9-year path, *nothing* beats 1/N significantly (not even the oracle).
+on a single 9-year path, *nothing* beats 1/N significantly (not even the oracle). Act 4
+treats μ itself with **Jorion's Bayes–Stein shrinkage** and the **Black–Litterman equilibrium
+prior** (the no-view BL = market portfolio theorem is verified to machine precision); act 5
+sweeps the universe from 8 to 200 assets and exhibits the **phase transition** where the
+sample covariance collapses and RMT clipping is fully redeemed.
 
 ```bash
 pip install -r requirements.txt
 python main.py                   # Act 1 — in-sample: frontier, GMV, tangency + 6 self-checks
 python experiment_backtest.py    # Act 2 — out-of-sample walk-forward backtest + 5 self-checks
 python experiment_covariance.py  # Act 3 — covariance shootout (RMT) + bootstrap inference + 8 self-checks
+python experiment_mu_shrinkage.py # Act 4 — Bayes-Stein & Black-Litterman for mu + 8 self-checks
+python experiment_dimension.py   # Act 5 — dimension sweep n=8..200, the RMT redemption + 6 self-checks
 ```
 
 Full math derivation (in Chinese): [docs/derivation.pdf](docs/derivation.pdf).
 
 ---
 
-## 三幕故事
+## 五幕故事
 
 ### 第一幕 · 样本内：把优化问题手推手写一遍
 
@@ -129,6 +135,47 @@ walk-forward 协议下让四种协方差估计同台（样本 / Ledoit-Wolf / **
 |---|---|
 | ![MP谱与条件数](figures/covariance_mp_spectrum.png) | ![夏普差检验](figures/covariance_delta_sharpe.png) |
 
+### 第四幕 · 给 μ 开药方：Bayes-Stein 收缩与 Black-Litterman
+
+诊断完成，开方子。**对 μ 本身做收缩**（所有切点固定用 LW Σ，隔离 μ 的影响）：
+
+| 策略 | 样本外夏普 | Δ vs 1/N (p 值) | 平均换手 | μ 估计误差(年化) |
+|---|---|---|---|---|
+| 切点（样本 μ） | 0.37 | −0.08 (0.87) | 1881% | 0.765 |
+| 切点（**James-Stein** μ，Jorion 1986） | **0.40** | −0.05 (0.92) | **844%** | **0.486** |
+| 切点（均衡 μ·**BL 先验**） | 0.45 | −0.00 (0.94) | **0%** | 0.397 |
+| 等权 1/N（基准） | 0.45 | — | 0% | — |
+| Oracle 切点（真 μ） | 0.49 | +0.04 (0.85) | 12.5% | 0 |
+
+![μ诊断](figures/mu_diagnosis.png)
+
+- **JS 收缩确实有效**：μ 误差砍掉 36%（0.765→0.486，99% 的窗口更优）、换手减半、夏普 0.37→0.40 ——
+  方向全对，但仍追不上 1/N；
+- **BL 定理的数值验证**：无观点的均衡先验切点**精确还原等权**（`max|w−1/n| = 1.2e-15`）——
+  "不持有观点的贝叶斯投资者就该持有市场"，代码替教科书把这句话证了一遍；
+- **φ 扫描的反直觉结论**（右图）：μ_φ = (1−φ)π + φμ̂ 从纯均衡滑向纯样本，最优在 **φ*=0**。
+  且中间不是平滑过渡而是剧烈震荡——混合后的超额收益向量接近零时，切点归一化病态、权重爆炸。
+  样本 μ̂ 在这条路径上**掺一分都嫌多**。
+
+### 第五幕 · 维数相变：给 RMT 翻案
+
+第三幕说"RMT 在 n=8 帮倒忙"，只讲了一半。固定 T=252，把资产数扫到 200（q=n/T→0.8），
+数据生成过程同构、真实信号秩恒为 4，用 **GMV 样本外实现波动**（不经过 μ，纯度量 Σ̂ 质量）：
+
+| n (q) | 样本Σ | 收缩Σ | RMT 裁剪 | PCA 因子 | 等权 |
+|---|---|---|---|---|---|
+| 8 (0.03) | 18.2% | 18.2% | 18.3% | 18.7% | 18.6% |
+| 50 (0.20) | 14.0% | 13.8% | 13.4% | 13.2% | 17.3% |
+| 100 (0.40) | 13.8% | 13.0% | 12.0% | 11.5% | 17.5% |
+| 200 (0.79) | **17.5%** ↑ | 11.9% | **9.1%** | **8.8%** | 17.4% |
+
+![维数相变](figures/dimension_phase.png)
+
+**相变清晰可见**：n=200 时样本协方差的 GMV 崩溃回 17.5%——**和闭着眼睛等权一样差，
+维数带来的分散化红利被估计误差全部吃掉**（条件数中位 10994 vs LW 的 1697）；而 RMT
+裁剪与 PCA 因子只保留 O(1) 个信号特征对，对维数免疫，波动一路降到 9%。第三幕与第五幕
+合起来才是 RMT 的完整画像：**q 小时是手术刀误伤，q 大时是救命稻草。**
+
 ---
 
 ## 如何运行
@@ -146,7 +193,13 @@ python experiment_backtest.py
 # 4. 第三幕——协方差擂台（RMT）+ bootstrap 显著性，出 3 张图、导出 covariance_summary.json
 python experiment_covariance.py
 
-# 5.（可选）编译中文数学推导 PDF（需 xelatex，运行两遍以生成目录/交叉引用）
+# 5. 第四幕——μ 收缩（Bayes-Stein / Black-Litterman），出 3 张图、导出 mu_summary.json
+python experiment_mu_shrinkage.py
+
+# 6. 第五幕——维数扫描 n=8..200，出 2 张图、导出 dimension_summary.json
+python experiment_dimension.py
+
+# 7.（可选）编译中文数学推导 PDF（需 xelatex，运行两遍以生成目录/交叉引用）
 cd docs && xelatex derivation.tex && xelatex derivation.tex
 ```
 
@@ -164,32 +217,37 @@ cd docs && xelatex derivation.tex && xelatex derivation.tex
 ├── main.py                     第一幕：数据→估计→解析/数值求解→图像→自检→导出
 ├── experiment_backtest.py      第二幕：样本外滚动回测 + 自检
 ├── experiment_covariance.py    第三幕：协方差擂台（RMT）+ bootstrap 显著性 + 自检
+├── experiment_mu_shrinkage.py  第四幕：μ 收缩（Bayes-Stein/BL）+ φ 扫描 + 自检
+├── experiment_dimension.py     第五幕：维数扫描 n=8..200（RMT 翻案）+ 自检
 ├── src/
-│   ├── generate_data.py        三因子模型生成合成收益率（含真实 μ）
-│   ├── data_utils.py           μ/Σ 估计 + LW 收缩 + MP 裁剪 + PCA 因子 + 条件数
+│   ├── generate_data.py        三因子模型合成收益率（8 资产 + 任意 n 宇宙，含真实 μ）
+│   ├── data_utils.py           μ/Σ 估计：LW 收缩、MP 裁剪、PCA 因子、JS 收缩、BL 先验
 │   ├── analytic.py             解析法（Cholesky、闭式前沿、GMV、切点）
 │   ├── numeric.py              数值法（投影梯度下降 + 单纯形投影）
-│   ├── backtest.py             样本外滚动回测引擎 + 策略注册表
+│   ├── backtest.py             样本外滚动回测引擎 + 策略注册表（可插拔 μ/Σ 估计量）
 │   ├── bootstrap.py            circular block bootstrap（联合重采、夏普差检验）
 │   ├── metrics.py              收益/风险/夏普 + 回撤/换手/年化统计
-│   └── plots.py                全部图像绘制（12 张）
-├── figures/                    12 张输出图（运行后生成）
+│   └── plots.py                全部图像绘制（17 张）
+├── figures/                    17 张输出图（运行后生成）
 ├── results/
 │   ├── summary.json            样本内关键结果 + 自检
 │   ├── backtest_summary.json   样本外绩效 + 自检
-│   └── covariance_summary.json 协方差擂台 + bootstrap 推断 + 自检
+│   ├── covariance_summary.json 协方差擂台 + bootstrap 推断 + 自检
+│   ├── mu_summary.json         μ 收缩绩效 + φ 扫描 + 自检
+│   └── dimension_summary.json  维数扫描 + 自检
 ├── data/                       合成日收益率 CSV（运行后生成）
 └── docs/
     ├── derivation.tex          中文数学推导（ctex + xelatex）
-    └── derivation.pdf          编译产物（11 页）
+    └── derivation.pdf          编译产物
 ```
 
 ## 交付物对应
 
 1. **数学推导（LaTeX）**：[docs/derivation.tex](docs/derivation.tex) → [docs/derivation.pdf](docs/derivation.pdf)
-2. **代码**：[main.py](main.py) + 三个实验驱动 + [src/](src/)（核心算法纯 numpy 从零实现）
-3. **图像**：[figures/](figures/) 共 12 张（有效前沿、可行域、PGD 收敛、协方差分析、权重对比 + 回测净值/夏普/换手/滚动权重 + 夏普森林图/MP 谱/夏普差检验）
-4. **现实问题落地**：从抽象矩阵优化到"如何配一篮子股票"，并用样本外实验 + 统计推断解读分散化、做空约束、估计误差与回测噪声的真实代价
+2. **代码**：[main.py](main.py) + 五个实验驱动 + [src/](src/)（核心算法纯 numpy 从零实现，33 项数值自检）
+3. **图像**：[figures/](figures/) 共 17 张（样本内 5 + 回测 4 + 协方差/bootstrap 3 + μ 收缩 3 + 维数 2）
+4. **现实问题落地**：从抽象矩阵优化到"如何配一篮子股票"，五个实验依次回答：最优为何翻车 →
+   修 Σ 行不行 → 结论显著吗 → 修 μ 行不行 → 每种方法的适用边界在哪
 
 ## 参考
 
@@ -199,6 +257,8 @@ cd docs && xelatex derivation.tex && xelatex derivation.tex
 - Marchenko & Pastur (1967), *Distribution of eigenvalues for some sets of random matrices*.
 - Bouchaud & Potters (2011), *Financial applications of random matrix theory: a short review*.
 - Politis & Romano (1992), *A circular block-resampling procedure for stationary data*.
+- Jorion (1986), *Bayes-Stein estimation for portfolio analysis*.
+- Black & Litterman (1992), *Global Portfolio Optimization*.
 
 ## License
 
