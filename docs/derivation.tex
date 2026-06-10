@@ -342,11 +342,67 @@ GMV 把资金集中到低波动的金融/消费股，年化波动最低；切点
 自研 PGD 与 \texttt{scipy} 的 SLSQP 解最大偏差 $<10^{-3}$），见 \texttt{results/summary.json}。
 
 % =========================================================================
+\section{随机矩阵理论与自助法推断（样本外实验补充）}
+
+\subsection{Marchenko--Pastur 定理与特征值裁剪}
+
+设 $T\times n$ 数据矩阵的行向量为 i.i.d.\ 纯噪声（方差 $\sigma^2$）。当 $T,n\to\infty$、
+$q=n/T$ 固定时，样本相关矩阵的特征值依分布收敛到 Marchenko--Pastur 律
+\begin{equation}
+\rho(\lambda)=\frac{\sqrt{(\lambda_+-\lambda)(\lambda-\lambda_-)}}{2\pi q\,\sigma^2\lambda},
+\qquad \lambda_\pm=\sigma^2\bigl(1\pm\sqrt{q}\bigr)^2,
+\end{equation}
+支撑为 $[\lambda_-,\lambda_+]$。于是凡落入噪声带的样本特征值与纯噪声在统计上不可区分，
+只有 $\lambda>\lambda_+$ 的特征值才携带真实相关结构（市场/行业因子）。
+
+\paragraph{裁剪估计量（Bouchaud--Potters 配方）。}
+对样本相关阵作特征分解 $C=V\Lambda V\T$，把 $\lambda_i\le\lambda_+$ 的噪声特征值替换为
+它们的均值（\textbf{保迹}：$\sum_i\lambda_i'=\tr C=n$），重构 $C'=V\Lambda'V\T$ 后重新归一
+使对角恰为 $1$，再乘回样本标准差得 $\Sig_{\mathrm{RMT}}$。
+
+\paragraph{因子估计量。}
+只保留 $k=\#\{\lambda_i>\lambda_+\}$ 个信号特征对：
+\begin{equation}
+C_f=\sum_{i\le k}\lambda_i v_i^{\vphantom{\T}}v_i\T + D,\qquad
+D_{jj}=1-\sum_{i\le k}\lambda_i v_{ij}^2=\sum_{i>k}\lambda_i v_{ij}^2\;\ge\;0 ,
+\end{equation}
+对角残差使 $C_f$ 半正定且对角为 $1$。由迹约束知平均特征值为 $1<\lambda_+$，故必有 $k<n$
+（全部特征值超界将使迹超过 $n\lambda_+>n$，矛盾）。
+
+\paragraph{低维警示。}
+本项目 $q=8/252\approx0.032$，$\lambda_+\approx1.39$，噪声带很窄。实验中全部 $108$ 个
+滚动窗口都只有市场因子（$\lambda\approx3\sim4$）超出 $\lambda_+$，三个行业因子在统计上
+与噪声不可分而被一并裁掉——裁剪后的 $\Sig$ 低估行业内相关，反而令切点组合的杠杆更极端
+（样本外夏普 $-0.56$，劣于直接用样本协方差）。RMT 是 $n/T$ 较大时的高维武器；低维时
+样本协方差本不病态，谱手术的收益预期有限，甚至为负。
+
+\subsection{Circular block bootstrap 与夏普差检验}
+
+单条样本外收益路径给出的夏普比率只是点估计。设 $m$ 个策略的样本外日收益矩阵为
+$R\in\R^{T\times m}$，第 $b$ 次重采样以块长 $\ell$（取再平衡周期 $21$ 天）生成环形块索引：
+块起点独立同分布于 $U\{0,\dots,T-1\}$，每块取连续 $\ell$ 天（模 $T$ 回绕），拼接后截断到
+长度 $T$——块内的波动聚集等时序依赖得以保留。
+
+关键设计是\textbf{联合重采}：同一组索引同时作用于 $R$ 的全部 $m$ 列，保留策略间的截面
+相关。如此夏普差 $\Delta_b=\widehat{\mathrm{SR}}^{(i)}_b-\widehat{\mathrm{SR}}^{(j)}_b$
+中共同的市场波动相互抵消，检验才有功效；若各列独立重采，$\Delta$ 的方差将被严重高估。
+每个 resample 内\textbf{整段重算}年化夏普（均值与波动在同一 resample 内相关，不可分别
+抽样再组合）。双侧 $p$ 值采用 $(\#+1)/(B+1)$ 修正以避免报出 $p=0$。
+
+\paragraph{实验结论。}
+$B=2000$ 次重采样下，全部策略相对等权 $1/N$ 的 $\Delta\mathrm{Sharpe}$ 置信区间均横跨
+$0$（最小 $p=0.079$）：在一条 $9$ 年的样本外路径上，连使用真实 $\muv$ 的 Oracle 切点
+组合都无法在统计上显著胜过 $1/N$（$p=0.85$）。这把 DeMiguel et al.\ (2009) 的结论又推进
+一步——不仅估计误差会摧毁样本内最优，而且单条路径的噪声之大，使任何“跑赢”都难以被证实。
+
+% =========================================================================
 \section{结论}
 
 本项目以矩阵算法为主线，完整走通了一个量化金融多目标规划问题：从双目标建模、标量化，
 到拉格朗日/KKT 闭式解（依托 Cholesky 与特征分解）、再到不可卖空约束下从零实现的投影梯度
 下降（含单纯形投影推导与收敛性分析），最后用 Ledoit--Wolf 收缩把机器学习的正则化思想
-引入协方差估计。理论推导、代码实现、图像与数值自检相互印证，可作为矩阵算法课程的完整范例。
+引入协方差估计。在此基础上，样本外滚动回测量化了 $\muv$ 估计误差的真实代价，随机矩阵
+理论与 block bootstrap 进一步揭示了协方差谱手术的低维局限与回测结论本身的统计不确定性。
+理论推导、代码实现、图像与数值自检相互印证，可作为矩阵算法课程的完整范例。
 
 \end{document}

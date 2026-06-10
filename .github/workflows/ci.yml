@@ -25,3 +25,6 @@ jobs:
 
       - name: 第二幕：样本外滚动回测 + 5 项自检
         run: python experiment_backtest.py
+
+      - name: 第三幕：协方差擂台 + bootstrap 显著性 + 8 项自检
+        run: python experiment_covariance.py

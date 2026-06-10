@@ -79,13 +79,34 @@ STRATEGIES = {
 }
 
 
-def estimate_window(win: np.ndarray, rf: float, mu_true: np.ndarray) -> dict:
-    """对一个估计窗口（T×n 日收益）做年化 μ̂/Σ̂ 估计，返回策略所需的 est 包。"""
+def make_strategy(kind: str, sigma_key: str):
+    """构造以 est[sigma_key] 为协方差的 GMV / 切点策略函数。
+
+    供扩展实验（如协方差估计擂台）配合 extra_covs 组装新策略，
+    不触碰上面的 STRATEGIES 注册表。
+    """
+    def _fn(est):
+        Sig = est[sigma_key]
+        if kind == "gmv":
+            return an.gmv_portfolio(est["mu_hat"], Sig)["weights"]
+        if kind == "tangency":
+            return an.tangency_portfolio(est["mu_hat"], Sig, est["rf"])["weights"]
+        raise ValueError(f"未知策略类型: {kind}")
+    return _fn
+
+
+def estimate_window(win: np.ndarray, rf: float, mu_true: np.ndarray,
+                    extra_covs: dict | None = None) -> dict:
+    """对一个估计窗口（T×n 日收益）做年化 μ̂/Σ̂ 估计，返回策略所需的 est 包。
+
+    extra_covs：{名称: fn(日频窗口)→日频Σ} 的额外协方差估计量，
+    估计结果以 est["Sigma_<名称>"] 注入（统一年化），默认 None 行为不变。
+    """
     mu_hat = du.annualize_mu(du.estimate_mu(win))
     Sigma_sample = du.annualize_cov(du.sample_covariance(win))
     Slw_d, delta = du.ledoit_wolf_shrinkage(win)
     Sigma_lw = du.annualize_cov(Slw_d)
-    return {
+    est = {
         "mu_hat": mu_hat,
         "Sigma_sample": Sigma_sample,
         "Sigma_lw": Sigma_lw,
@@ -94,11 +115,16 @@ def estimate_window(win: np.ndarray, rf: float, mu_true: np.ndarray) -> dict:
         "n": win.shape[1],
         "delta": delta,
     }
+    if extra_covs:
+        for name, fn in extra_covs.items():
+            est[f"Sigma_{name}"] = du.annualize_cov(fn(win))
+    return est
 
 
 def run_backtest(R_all: np.ndarray, mu_true: np.ndarray,
                  L: int = 252, R: int = 21, rf_annual: float = 0.03,
-                 strategies: dict | None = None) -> dict:
+                 strategies: dict | None = None,
+                 extra_covs: dict | None = None) -> dict:
     """滚动回测主循环。
 
     参数
@@ -122,16 +148,19 @@ def run_backtest(R_all: np.ndarray, mu_true: np.ndarray,
     daily_oos = {s: [] for s in strategies}      # 拼接后的样本外日收益
     weights_hist = {s: [] for s in strategies}   # 每个再平衡点的目标权重
     cond_sample, cond_lw, deltas = [], [], []
+    cond_extra = {name: [] for name in (extra_covs or {})}
 
     for t in rebal_points:
         win = R_all[t - L:t]                      # 估计窗 [t-L, t)，严格在 t 之前
         hold = R_all[t:t + R]                     # 持有窗 [t, t+R)，已实现收益
         if hold.shape[0] == 0:
             continue
-        est = estimate_window(win, rf_annual, mu_true)
+        est = estimate_window(win, rf_annual, mu_true, extra_covs)
         cond_sample.append(du.condition_number(est["Sigma_sample"]))
         cond_lw.append(du.condition_number(est["Sigma_lw"]))
         deltas.append(est["delta"])
+        for name in cond_extra:
+            cond_extra[name].append(du.condition_number(est[f"Sigma_{name}"]))
         for name, fn in strategies.items():
             w = fn(est)
             weights_hist[name].append(w)
@@ -142,6 +171,7 @@ def run_backtest(R_all: np.ndarray, mu_true: np.ndarray,
         "weights_hist": {s: np.asarray(v) for s, v in weights_hist.items()},
         "cond_sample": np.asarray(cond_sample),
         "cond_lw": np.asarray(cond_lw),
+        "cond_extra": {name: np.asarray(v) for name, v in cond_extra.items()},
         "deltas": np.asarray(deltas),
         "rebal_points": np.asarray(rebal_points[:len(cond_sample)]),
         "L": L, "R": R, "rf_annual": rf_annual,

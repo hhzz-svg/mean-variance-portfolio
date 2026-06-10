@@ -1,0 +1,215 @@
+{
+  "config": {
+    "n_days": 2520,
+    "n_assets": 8,
+    "estimation_window_L": 252,
+    "rebalance_R": 21,
+    "risk_free_annual": 0.03,
+    "bootstrap": {
+      "block": 21,
+      "B": 2000,
+      "seed": 2024,
+      "benchmark": "等权 1/N"
+    }
+  },
+  "spectrum_stats": {
+    "lambda_plus": 1.388094,
+    "k_signal_mode": 1,
+    "k_signal_counts": {
+      "1": 108
+    },
+    "sigma2_eff_mean": 0.647679,
+    "cond_median": {
+      "样本协方差 S": 12.713,
+      "Ledoit-Wolf 收缩": 11.479,
+      "RMT 裁剪": 10.655,
+      "PCA 因子": 14.075
+    }
+  },
+  "performance": {
+    "等权 1/N": {
+      "oos_sharpe": 0.450402,
+      "sharpe_ci": [
+        -0.234105,
+        1.151193
+      ],
+      "delta_vs_1N": 0.0,
+      "delta_ci": [
+        0.0,
+        0.0
+      ],
+      "p_value": 1.0,
+      "avg_turnover": 0.0,
+      "oos_max_drawdown": -0.474209
+    },
+    "GMV（样本Σ）": {
+      "oos_sharpe": 0.180054,
+      "sharpe_ci": [
+        -0.462252,
+        0.8103
+      ],
+      "delta_vs_1N": -0.270348,
+      "delta_ci": [
+        -0.628097,
+        0.076275
+      ],
+      "p_value": 0.124938,
+      "avg_turnover": 0.060006,
+      "oos_max_drawdown": -0.405775
+    },
+    "GMV（收缩Σ）": {
+      "oos_sharpe": 0.198607,
+      "sharpe_ci": [
+        -0.449211,
+        0.838938
+      ],
+      "delta_vs_1N": -0.251795,
+      "delta_ci": [
+        -0.597376,
+        0.0831
+      ],
+      "p_value": 0.143928,
+      "avg_turnover": 0.055745,
+      "oos_max_drawdown": -0.405018
+    },
+    "GMV（RMT裁剪Σ）": {
+      "oos_sharpe": 0.158539,
+      "sharpe_ci": [
+        -0.481206,
+        0.791733
+      ],
+      "delta_vs_1N": -0.291863,
+      "delta_ci": [
+        -0.74043,
+        0.143204
+      ],
+      "p_value": 0.189905,
+      "avg_turnover": 0.040249,
+      "oos_max_drawdown": -0.380059
+    },
+    "GMV（因子Σ）": {
+      "oos_sharpe": 0.090307,
+      "sharpe_ci": [
+        -0.54699,
+        0.723338
+      ],
+      "delta_vs_1N": -0.360095,
+      "delta_ci": [
+        -0.894579,
+        0.167068
+      ],
+      "p_value": 0.169915,
+      "avg_turnover": 0.053569,
+      "oos_max_drawdown": -0.366722
+    },
+    "切点（样本μ,Σ）": {
+      "oos_sharpe": -0.164608,
+      "sharpe_ci": [
+        -0.592155,
+        0.68687
+      ],
+      "delta_vs_1N": -0.615011,
+      "delta_ci": [
+        -1.444403,
+        0.48373
+      ],
+      "p_value": 0.29985,
+      "avg_turnover": 24.291483,
+      "oos_max_drawdown": -38.273787
+    },
+    "切点（收缩Σ）": {
+      "oos_sharpe": 0.369404,
+      "sharpe_ci": [
+        -0.14972,
+        0.882705
+      ],
+      "delta_vs_1N": -0.080998,
+      "delta_ci": [
+        -0.941207,
+        0.764639
+      ],
+      "p_value": 0.873563,
+      "avg_turnover": 18.805217,
+      "oos_max_drawdown": -1.102858
+    },
+    "切点（RMT裁剪Σ）": {
+      "oos_sharpe": -0.56158,
+      "sharpe_ci": [
+        -1.155622,
+        0.339512
+      ],
+      "delta_vs_1N": -1.011982,
+      "delta_ci": [
+        -1.924401,
+        0.124123
+      ],
+      "p_value": 0.078961,
+      "avg_turnover": 51.826257,
+      "oos_max_drawdown": -62.081583
+    },
+    "切点（因子Σ）": {
+      "oos_sharpe": 0.057713,
+      "sharpe_ci": [
+        -0.497752,
+        0.529995
+      ],
+      "delta_vs_1N": -0.392689,
+      "delta_ci": [
+        -1.293573,
+        0.428189
+      ],
+      "p_value": 0.329835,
+      "avg_turnover": 18.793113,
+      "oos_max_drawdown": -1.087579
+    },
+    "Oracle切点（真μ）": {
+      "oos_sharpe": 0.490073,
+      "sharpe_ci": [
+        -0.200316,
+        1.17979
+      ],
+      "delta_vs_1N": 0.039671,
+      "delta_ci": [
+        -0.33807,
+        0.431251
+      ],
+      "p_value": 0.848576,
+      "avg_turnover": 0.125118,
+      "oos_max_drawdown": -0.644476
+    }
+  },
+  "self_checks": {
+    "MP裁剪保迹": {
+      "pass": true,
+      "detail": "max|Σλ' − n|=5.33e-15"
+    },
+    "RMT_PSD且对角恢复": {
+      "pass": true,
+      "detail": "min λ=9.35e-05, max|diag−样本方差|=1.08e-19"
+    },
+    "因子Σ_PSD且k合法": {
+      "pass": true,
+      "detail": "min λ=8.30e-05, k∈[1,1] (<n=8)"
+    },
+    "CI含点估计且口径一致": {
+      "pass": true,
+      "detail": "CI 全包含=True, max|夏普−metrics 口径|=3.00e-15"
+    },
+    "bootstrap可复现": {
+      "pass": true,
+      "detail": "同种子 B=50 两遍逐元素相等=True"
+    },
+    "回归保护_公共策略一致": {
+      "pass": true,
+      "detail": "6 个公共策略 max|日收益差|=0.0e+00"
+    },
+    "基准自检": {
+      "pass": true,
+      "detail": "Δ=0.0, p=1.0"
+    },
+    "联合矩阵自洽": {
+      "pass": true,
+      "detail": "shape=(2268, 10) (期望 (2268, 10))"
+    }
+  }
+}

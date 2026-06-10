@@ -11,7 +11,8 @@
 
 把量化金融最经典的资产配置问题 —— **Markowitz 均值-方差模型** —— 建成一个**双目标规划**
 （同时 `max μᵀw` 收益、`min wᵀΣw` 风险），从**矩阵算法**视角完整求解：闭式解、从零实现的
-数值优化器、协方差收缩，再用**样本外滚动回测**验证"样本内最优为什么在现实中会翻车"。
+数值优化器、协方差收缩，再用**样本外滚动回测**验证"样本内最优为什么在现实中会翻车"，
+最后用**随机矩阵理论**与 **block bootstrap** 给整个故事补上谱分析与统计显著性的句号。
 
 ![样本外累计净值](figures/backtest_wealth.png)
 
@@ -30,18 +31,22 @@ no-look-ahead **walk-forward backtest** then shows why the in-sample optimum fai
 practice — estimation error in `μ` collapses the max-Sharpe portfolio (OOS Sharpe goes
 **negative**) while naïve **1/N wins**, reproducing DeMiguel et al. (2009). All solvers are
 cross-validated against SciPy and ship with numerical self-checks (run on every push by CI).
+A third act benchmarks four covariance estimators — sample, Ledoit–Wolf, **Marchenko–Pastur
+eigenvalue clipping**, PCA factor — and wraps every Sharpe in **joint block-bootstrap CIs**:
+on a single 9-year path, *nothing* beats 1/N significantly (not even the oracle).
 
 ```bash
 pip install -r requirements.txt
 python main.py                   # Act 1 — in-sample: frontier, GMV, tangency + 6 self-checks
 python experiment_backtest.py    # Act 2 — out-of-sample walk-forward backtest + 5 self-checks
+python experiment_covariance.py  # Act 3 — covariance shootout (RMT) + bootstrap inference + 8 self-checks
 ```
 
 Full math derivation (in Chinese): [docs/derivation.pdf](docs/derivation.pdf).
 
 ---
 
-## 两幕故事
+## 三幕故事
 
 ### 第一幕 · 样本内：把优化问题手推手写一遍
 
@@ -93,6 +98,37 @@ Ledoit-Wolf 收缩把切点的样本外夏普从 −0.17 救回 0.37，逐期条
 > 口径说明：再平衡到目标权重后持有至下期（忽略持有期内权重漂移）；切点策略不设杠杆上限，
 > 故意保留其样本外失控以暴露估计误差——其单日亏损常 >100%，净值图已将其剔除（失败由表格量化）。
 
+### 第三幕 · 把 Σ 也修好？随机矩阵理论与统计显著性
+
+第二幕证明元凶是 μ。那 **Σ 的估计还能再好吗？回测的排名统计上可信吗？** 第三幕在同一
+walk-forward 协议下让四种协方差估计同台（样本 / Ledoit-Wolf / **Marchenko-Pastur 特征值
+裁剪** / PCA 因子重构），并用 **circular block bootstrap**（块长 21 天、B=2000、**联合重采**
+保留策略间截面相关）给每个夏普配上 95% 置信区间、对"策略 − 1/N"的夏普差做检验：
+
+| 策略 | 样本外夏普 | 95% CI | Δ vs 1/N | p 值 |
+|---|---|---|---|---|
+| 等权 1/N（基准） | **0.45** | [−0.23, 1.15] | — | — |
+| GMV（样本Σ / 收缩Σ / RMT / 因子） | 0.18 / 0.20 / 0.16 / 0.09 | 均宽约 ±0.64 | −0.27 ~ −0.36 | 0.13~0.19 |
+| 切点（样本 / 收缩 / RMT / 因子） | −0.17 / 0.37 / **−0.56** / 0.06 | — | −0.62 ~ −1.01 | 0.08~0.87 |
+| Oracle 切点（真 μ） | 0.49 | [−0.20, 1.18] | +0.04 | 0.85 |
+
+![夏普森林图](figures/covariance_sharpe_forest.png)
+
+三个结论，一个比一个扎心：
+
+1. **低维时 RMT 帮倒忙**：q = n/T = 8/252 ≈ 0.03，MP 噪声带很窄（λ₊≈1.39），全部 108 个
+   滚动窗口里只有市场因子（λ≈3~4）被认定为信号——**三个真实的行业因子全部被当成噪声裁掉**，
+   裁剪后的 Σ 低估行业内相关，切点组合杠杆失控（夏普 −0.56、换手 5183%）。RMT 是高维
+   （n/T 大）武器，低维时样本协方差本不病态，谱手术反而误伤。
+2. **GMV 档四种 Σ 差距很小**（0.09~0.20）：协方差怎么修都救不了 μ 的估计误差，与第二幕互证。
+3. **没有任何策略与 1/N 的差距在 5% 水平显著**（最小 p=0.079）——单条 10 年路径的噪声大到
+   **连用真实 μ 的 Oracle 都无法被统计证明跑赢等权**（p=0.85）。"回测定胜负"本身就是幻觉，
+   这把 DeMiguel et al. (2009) 的结论又推进了一步。
+
+| | |
+|---|---|
+| ![MP谱与条件数](figures/covariance_mp_spectrum.png) | ![夏普差检验](figures/covariance_delta_sharpe.png) |
+
 ---
 
 ## 如何运行
@@ -107,7 +143,10 @@ python main.py
 # 3. 第二幕——样本外：滚动回测，出 4 张图、导出 backtest_summary.json
 python experiment_backtest.py
 
-# 4.（可选）编译中文数学推导 PDF（需 xelatex，运行两遍以生成目录/交叉引用）
+# 4. 第三幕——协方差擂台（RMT）+ bootstrap 显著性，出 3 张图、导出 covariance_summary.json
+python experiment_covariance.py
+
+# 5.（可选）编译中文数学推导 PDF（需 xelatex，运行两遍以生成目录/交叉引用）
 cd docs && xelatex derivation.tex && xelatex derivation.tex
 ```
 
@@ -124,36 +163,42 @@ cd docs && xelatex derivation.tex && xelatex derivation.tex
 ├── requirements.txt            依赖
 ├── main.py                     第一幕：数据→估计→解析/数值求解→图像→自检→导出
 ├── experiment_backtest.py      第二幕：样本外滚动回测 + 自检
+├── experiment_covariance.py    第三幕：协方差擂台（RMT）+ bootstrap 显著性 + 自检
 ├── src/
 │   ├── generate_data.py        三因子模型生成合成收益率（含真实 μ）
-│   ├── data_utils.py           μ/Σ 估计 + Ledoit-Wolf 收缩 + 条件数
+│   ├── data_utils.py           μ/Σ 估计 + LW 收缩 + MP 裁剪 + PCA 因子 + 条件数
 │   ├── analytic.py             解析法（Cholesky、闭式前沿、GMV、切点）
 │   ├── numeric.py              数值法（投影梯度下降 + 单纯形投影）
-│   ├── backtest.py             样本外滚动回测引擎 + 7 策略注册表
+│   ├── backtest.py             样本外滚动回测引擎 + 策略注册表
+│   ├── bootstrap.py            circular block bootstrap（联合重采、夏普差检验）
 │   ├── metrics.py              收益/风险/夏普 + 回撤/换手/年化统计
-│   └── plots.py                全部图像绘制（样本内 5 张 + 回测 4 张）
-├── figures/                    9 张输出图（运行后生成）
+│   └── plots.py                全部图像绘制（12 张）
+├── figures/                    12 张输出图（运行后生成）
 ├── results/
 │   ├── summary.json            样本内关键结果 + 自检
-│   └── backtest_summary.json   样本外绩效 + 自检
+│   ├── backtest_summary.json   样本外绩效 + 自检
+│   └── covariance_summary.json 协方差擂台 + bootstrap 推断 + 自检
 ├── data/                       合成日收益率 CSV（运行后生成）
 └── docs/
     ├── derivation.tex          中文数学推导（ctex + xelatex）
-    └── derivation.pdf          编译产物（10 页）
+    └── derivation.pdf          编译产物（11 页）
 ```
 
 ## 交付物对应
 
 1. **数学推导（LaTeX）**：[docs/derivation.tex](docs/derivation.tex) → [docs/derivation.pdf](docs/derivation.pdf)
-2. **代码**：[main.py](main.py) + [experiment_backtest.py](experiment_backtest.py) + [src/](src/)（核心算法纯 numpy 从零实现）
-3. **图像**：[figures/](figures/) 共 9 张（有效前沿、可行域、PGD 收敛、协方差分析、权重对比 + 回测净值/夏普/换手/滚动权重）
-4. **现实问题落地**：从抽象矩阵优化到"如何配一篮子股票"，并用样本外实验解读分散化、做空约束、估计误差的真实代价
+2. **代码**：[main.py](main.py) + 三个实验驱动 + [src/](src/)（核心算法纯 numpy 从零实现）
+3. **图像**：[figures/](figures/) 共 12 张（有效前沿、可行域、PGD 收敛、协方差分析、权重对比 + 回测净值/夏普/换手/滚动权重 + 夏普森林图/MP 谱/夏普差检验）
+4. **现实问题落地**：从抽象矩阵优化到"如何配一篮子股票"，并用样本外实验 + 统计推断解读分散化、做空约束、估计误差与回测噪声的真实代价
 
 ## 参考
 
 - Markowitz (1952), *Portfolio Selection*.
 - Ledoit & Wolf (2004), *A well-conditioned estimator for large-dimensional covariance matrices*.
 - DeMiguel, Garlappi & Uppal (2009), *Optimal Versus Naive Diversification*.
+- Marchenko & Pastur (1967), *Distribution of eigenvalues for some sets of random matrices*.
+- Bouchaud & Potters (2011), *Financial applications of random matrix theory: a short review*.
+- Politis & Romano (1992), *A circular block-resampling procedure for stationary data*.
 
 ## License
 

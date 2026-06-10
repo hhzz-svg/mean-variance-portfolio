@@ -195,6 +195,10 @@ _BT_COLORS = {
     "切点（收缩Σ）": "#9467bd",
     "长仓最小方差": "#1f77b4",
     "Oracle切点（真μ）": "#17becf",
+    "GMV（RMT裁剪Σ）": "#8c564b",
+    "GMV（因子Σ）": "#e377c2",
+    "切点（RMT裁剪Σ）": "#bcbd22",
+    "切点（因子Σ）": "#ff9896",
 }
 
 
@@ -264,7 +268,7 @@ def plot_sharpe_is_vs_oos(path, labels, is_sharpe, oos_sharpe):
 
 
 # --------------------------------------------------------------------------
-# 图C：换手率 + Σ̂ 条件数随时间（样本 vs 收缩）
+# 图C：换手率 + Σ估计量条件数随时间（样本 vs 收缩）
 # --------------------------------------------------------------------------
 def plot_turnover_and_condition(path, labels, turnovers,
                                 rebal_points, cond_sample, cond_lw,
@@ -325,6 +329,140 @@ def plot_rolling_weights(path, asset_names, rebal_points,
         ax.set_title(f"{title}：逐期权重（红=做多 蓝=做空）", fontsize=10)
         fig.colorbar(im, ax=ax, fraction=0.025, pad=0.01)
     axes[1].set_xlabel("样本外时间（年）")
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
+# ==========================================================================
+#  第三幕：协方差估计擂台 + Bootstrap 显著性 专用图
+# ==========================================================================
+# --------------------------------------------------------------------------
+# 图E：样本外夏普点估计 + bootstrap 95% CI 森林图（第三幕头条）
+# --------------------------------------------------------------------------
+def plot_sharpe_forest(path, labels, point, ci, benchmark="等权 1/N"):
+    """labels: 策略名列表；point: (m,) 点估计；ci: (m,2) 置信区间。按点估计排序。"""
+    point = np.asarray(point, dtype=float)
+    ci = np.asarray(ci, dtype=float)
+    order = np.argsort(point)
+
+    fig, ax = plt.subplots(figsize=(8.4, 0.52 * len(labels) + 2.0))
+    for row, i in enumerate(order):
+        c = _color(labels[i])
+        ax.errorbar(point[i], row,
+                    xerr=[[point[i] - ci[i, 0]], [ci[i, 1] - point[i]]],
+                    fmt="o", ms=6, color=c, ecolor=c, elinewidth=2.4, capsize=4)
+    if benchmark in list(labels):
+        bx = point[list(labels).index(benchmark)]
+        ax.axvline(bx, color="#7f7f7f", ls="--", lw=1.3,
+                   label=f"基准：{benchmark}（夏普={bx:.2f}）")
+    ax.axvline(0.0, color="k", lw=0.8)
+    ax.set_yticks(range(len(labels)))
+    ax.set_yticklabels([labels[i] for i in order], fontsize=9)
+    ax.set_xlabel("样本外年化夏普比率")
+    ax.set_title("夏普比率的统计不确定性：点估计 ± 95% block bootstrap 置信区间")
+    ax.legend(fontsize=9, loc="lower right")
+    ax.grid(axis="x", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
+# --------------------------------------------------------------------------
+# 图F：池化特征值谱 vs Marchenko-Pastur 密度 + 4 估计量条件数时序
+# --------------------------------------------------------------------------
+def plot_mp_spectrum_and_condition(path, pooled_eigvals, q, lambda_plus,
+                                   sigma2_eff, k_signal_mode,
+                                   rebal_points, cond_dict, trading_days=252):
+    """pooled_eigvals: 全部再平衡窗的相关阵特征值池化；cond_dict: {标签: 条件数序列}。
+
+    左面板把"为什么裁剪边界取 λ+"画出来：噪声 bulk 直方图 vs 两条 MP 密度
+    （σ²=1 朴素版 = 裁剪边界依据；σ²_eff 修正版解释 bulk 因信号因子吃掉方差而左移）。
+    """
+    import data_utils as du
+
+    ev = np.asarray(pooled_eigvals, dtype=float)
+    bulk = ev[ev <= lambda_plus]
+    sig = ev[ev > lambda_plus]
+
+    fig, axes = plt.subplots(1, 2, figsize=(12.6, 5.0))
+
+    # (a) 谱直方图 + MP 密度
+    bins = np.linspace(0.0, lambda_plus * 1.25, 36)
+    axes[0].hist(bulk, bins=bins, density=True, color="#1f77b4", alpha=0.55,
+                 label=f"噪声带特征值（{len(bulk)} 个，全窗口池化）")
+    lam_grid = np.linspace(1e-3, max(lambda_plus * 1.25, 2.0), 500)
+    axes[0].plot(lam_grid, du.mp_density(lam_grid, q, 1.0), "-", color="#d62728",
+                 lw=2.0, label="MP 密度（σ²=1，定义裁剪边界 λ+）")
+    axes[0].plot(lam_grid, du.mp_density(lam_grid, q, sigma2_eff), "--",
+                 color="#2ca02c", lw=1.8,
+                 label=f"MP 密度（σ²_eff={sigma2_eff:.2f}，扣除信号方差）")
+    axes[0].axvline(lambda_plus, color="k", ls=":", lw=1.4)
+    axes[0].text(lambda_plus * 1.02, axes[0].get_ylim()[1] * 0.9,
+                 f"λ+={lambda_plus:.2f}", fontsize=9)
+    if len(sig):
+        axes[0].plot(sig, np.full(len(sig), 0.05), "|", ms=20, color="#d62728")
+        axes[0].annotate(
+            f"信号特征值 ×{len(sig)}（市场因子，逐窗 k={k_signal_mode}）\n"
+            f"范围 [{sig.min():.2f}, {sig.max():.2f}]，远在噪声带 λ+ 之外",
+            xy=(lambda_plus * 1.22, 0.4), fontsize=8.5, color="#d62728")
+    axes[0].set_xlabel("相关矩阵特征值 λ")
+    axes[0].set_ylabel("密度")
+    axes[0].set_title(f"特征值谱 vs Marchenko-Pastur（q=n/T={q:.3f}）")
+    axes[0].legend(fontsize=8, loc="upper left")
+    axes[0].grid(alpha=0.3)
+
+    # (b) 各估计量条件数时序
+    cond_colors = ["#d62728", "#2ca02c", "#8c564b", "#e377c2", "#1f77b4"]
+    years = np.asarray(rebal_points) / trading_days
+    for (lab, series), c in zip(cond_dict.items(), cond_colors):
+        axes[1].semilogy(years, series, "-", lw=1.5, color=c, label=lab)
+    axes[1].set_xlabel("样本外时间（年）")
+    axes[1].set_ylabel("条件数 κ = λ_max/λ_min（对数轴）")
+    axes[1].set_title("逐期 Σ估计量条件数：四种估计量")
+    axes[1].legend(fontsize=8.5)
+    axes[1].grid(alpha=0.3, which="both")
+
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
+# --------------------------------------------------------------------------
+# 图G：ΔSharpe（策略 − 基准）的 bootstrap 分布 + CI + p 值
+# --------------------------------------------------------------------------
+def plot_delta_sharpe_bootstrap(path, delta_samples: dict, delta_stats: dict,
+                                benchmark="等权 1/N"):
+    """delta_samples: {策略: (B,) ΔSharpe bootstrap 样本}（不含基准自身）；
+    delta_stats: {策略: {delta_point, ci, p_value}}。"""
+    labels = list(delta_samples.keys())
+    data = [np.asarray(delta_samples[l]) for l in labels]
+
+    fig, ax = plt.subplots(figsize=(9.4, 0.62 * len(labels) + 2.0))
+    parts = ax.violinplot(data, positions=range(len(labels)), vert=False,
+                          showextrema=False, widths=0.82)
+    for body, lab in zip(parts["bodies"], labels):
+        body.set_facecolor(_color(lab))
+        body.set_alpha(0.55)
+    for row, lab in enumerate(labels):
+        st = delta_stats[lab]
+        ax.plot(st["ci"], [row, row], color="k", lw=2.2)
+        ax.plot([st["delta_point"]], [row], "o", color="k", ms=5)
+    ax.axvline(0.0, color="#d62728", ls="--", lw=1.4, label="ΔSharpe = 0（与基准打平）")
+
+    # p 值标注在右缘
+    x_lo, x_hi = ax.get_xlim()
+    ax.set_xlim(x_lo, x_hi + (x_hi - x_lo) * 0.16)
+    for row, lab in enumerate(labels):
+        ax.text(ax.get_xlim()[1] * 0.99, row, f"p={delta_stats[lab]['p_value']:.3f}",
+                fontsize=8.5, va="center", ha="right")
+
+    ax.set_yticks(range(len(labels)))
+    ax.set_yticklabels(labels, fontsize=9)
+    ax.set_xlabel(f"ΔSharpe = 夏普(策略) − 夏普({benchmark})")
+    ax.set_title("与基准的夏普差：bootstrap 分布、95% CI 与双侧 p 值")
+    ax.legend(fontsize=9, loc="lower left")
+    ax.grid(axis="x", alpha=0.3)
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
