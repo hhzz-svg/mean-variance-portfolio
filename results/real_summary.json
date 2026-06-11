@@ -1,0 +1,198 @@
+{
+  "config": {
+    "source": "Yahoo Finance 8 SPDR sector ETFs 2012-2023",
+    "n_days": 3017,
+    "n_assets": 8,
+    "estimation_window_L": 252,
+    "rebalance_R": 21,
+    "n_rebalances": 132,
+    "n_oos_days": 2765,
+    "risk_free_annual": 0.03,
+    "bootstrap": {
+      "block": 21,
+      "B": 2000,
+      "seed": 2024
+    }
+  },
+  "replication_rate_vs_1N_sign": 0.8889,
+  "real": {
+    "等权 1/N": {
+      "oos_sharpe": 0.622287,
+      "sharpe_ci": [
+        0.049972,
+        1.240826
+      ],
+      "delta_vs_1N": 0.0,
+      "p_value": 1.0,
+      "avg_turnover": 0.0,
+      "oos_max_drawdown": -0.369993
+    },
+    "GMV（样本Σ）": {
+      "oos_sharpe": 0.463907,
+      "sharpe_ci": [
+        -0.142727,
+        1.112667
+      ],
+      "delta_vs_1N": -0.15838,
+      "p_value": 0.4008,
+      "avg_turnover": 0.154002,
+      "oos_max_drawdown": -0.328582
+    },
+    "GMV（收缩Σ）": {
+      "oos_sharpe": 0.503023,
+      "sharpe_ci": [
+        -0.077235,
+        1.138408
+      ],
+      "delta_vs_1N": -0.119264,
+      "p_value": 0.494753,
+      "avg_turnover": 0.119056,
+      "oos_max_drawdown": -0.32763
+    },
+    "GMV（NLS）": {
+      "oos_sharpe": 0.474346,
+      "sharpe_ci": [
+        -0.134319,
+        1.125458
+      ],
+      "delta_vs_1N": -0.14794,
+      "p_value": 0.427786,
+      "avg_turnover": 0.145352,
+      "oos_max_drawdown": -0.326226
+    },
+    "切点（样本μ,Σ）": {
+      "oos_sharpe": -0.010797,
+      "sharpe_ci": [
+        -0.468793,
+        0.357355
+      ],
+      "delta_vs_1N": -0.633084,
+      "p_value": 0.084958,
+      "avg_turnover": 33.698274,
+      "oos_max_drawdown": -32.060167
+    },
+    "切点（收缩Σ）": {
+      "oos_sharpe": 0.16975,
+      "sharpe_ci": [
+        -0.300865,
+        0.617588
+      ],
+      "delta_vs_1N": -0.452537,
+      "p_value": 0.218891,
+      "avg_turnover": 16.781533,
+      "oos_max_drawdown": -5.262758
+    },
+    "切点（NLS）": {
+      "oos_sharpe": -0.040423,
+      "sharpe_ci": [
+        -0.514862,
+        0.466551
+      ],
+      "delta_vs_1N": -0.66271,
+      "p_value": 0.108946,
+      "avg_turnover": 17.820942,
+      "oos_max_drawdown": -2.73182
+    },
+    "切点（JSμ）": {
+      "oos_sharpe": 0.21297,
+      "sharpe_ci": [
+        -0.262458,
+        0.66653
+      ],
+      "delta_vs_1N": -0.409317,
+      "p_value": 0.26087,
+      "avg_turnover": 5.466697,
+      "oos_max_drawdown": -1.001861
+    },
+    "切点（BLμ）": {
+      "oos_sharpe": 0.622287,
+      "sharpe_ci": [
+        0.049972,
+        1.240826
+      ],
+      "delta_vs_1N": 0.0,
+      "p_value": 0.609695,
+      "avg_turnover": 0.0,
+      "oos_max_drawdown": -0.369993
+    },
+    "事后切点（全样本μ）": {
+      "oos_sharpe": 0.982526,
+      "sharpe_ci": [
+        0.463014,
+        1.486941
+      ],
+      "delta_vs_1N": 0.360239,
+      "p_value": 0.175912,
+      "avg_turnover": 0.220155,
+      "oos_max_drawdown": -0.248379
+    }
+  },
+  "synthetic": {
+    "等权 1/N": {
+      "oos_sharpe": 0.450402,
+      "delta_vs_1N": 0.0
+    },
+    "GMV（样本Σ）": {
+      "oos_sharpe": 0.180054,
+      "delta_vs_1N": -0.270348
+    },
+    "GMV（收缩Σ）": {
+      "oos_sharpe": 0.198607,
+      "delta_vs_1N": -0.251795
+    },
+    "GMV（NLS）": {
+      "oos_sharpe": 0.203176,
+      "delta_vs_1N": -0.247227
+    },
+    "切点（样本μ,Σ）": {
+      "oos_sharpe": -0.164608,
+      "delta_vs_1N": -0.615011
+    },
+    "切点（收缩Σ）": {
+      "oos_sharpe": 0.369404,
+      "delta_vs_1N": -0.080998
+    },
+    "切点（NLS）": {
+      "oos_sharpe": -0.060666,
+      "delta_vs_1N": -0.511068
+    },
+    "切点（JSμ）": {
+      "oos_sharpe": 0.402989,
+      "delta_vs_1N": -0.047413
+    },
+    "切点（BLμ）": {
+      "oos_sharpe": 0.450402,
+      "delta_vs_1N": -0.0
+    },
+    "事后切点（全样本μ）": {
+      "oos_sharpe": 0.490073,
+      "delta_vs_1N": 0.039671
+    }
+  },
+  "self_checks": {
+    "无前视/平铺": {
+      "pass": true,
+      "detail": "首点=252(=L), 样本外天数=2765(=T−L=2765)"
+    },
+    "权重和为1": {
+      "pass": true,
+      "detail": "max|Σw−1|=1.1e-13"
+    },
+    "CI含点估计且口径一致": {
+      "pass": true,
+      "detail": "全包含=True, max偏差=2.6e-15"
+    },
+    "五估计量PSD": {
+      "pass": true,
+      "detail": "全窗口最小特征值=6.97e-06 (>0)"
+    },
+    "事后μ=全样本均值": {
+      "pass": true,
+      "detail": "max|μ_hind − 全样本μ|=0.0e+00"
+    },
+    "bootstrap可复现": {
+      "pass": true,
+      "detail": "同种子 B=50 两遍逐元素相等"
+    }
+  }
+}

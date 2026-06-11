@@ -204,6 +204,9 @@ _BT_COLORS = {
     "切点（均衡μ·BL先验）": "#393b79",
     "GMV（NLS）": "#1f77b4",
     "切点（NLS）": "#aec7e8",
+    "切点（JSμ）": "#e7ba52",
+    "切点（BLμ）": "#393b79",
+    "事后切点（全样本μ）": "#17becf",
 }
 
 
@@ -601,6 +604,30 @@ def plot_shrinkage_functions(path, maps: dict, n_assets, T):
                  "非线性收缩抬高小特征值、压低大特征值，连续逼近最优")
     ax.legend(fontsize=9, loc="upper left")
     ax.grid(alpha=0.3, which="both")
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
+# --------------------------------------------------------------------------
+# 图K（实验七）：合成 vs 真实数据的样本外夏普对比（结论复制率）
+# --------------------------------------------------------------------------
+def plot_synth_vs_real(path, labels, synth_sharpe, real_sharpe):
+    """并排柱状对比同一策略在合成数据 vs 真实 ETF 上的样本外夏普。"""
+    x = np.arange(len(labels))
+    width = 0.38
+    fig, ax = plt.subplots(figsize=(10.5, 5.4))
+    ax.bar(x - width / 2, synth_sharpe, width, label="合成数据（8 资产因子模型）",
+           color="#9ecae1", edgecolor="k", lw=0.5)
+    ax.bar(x + width / 2, real_sharpe, width, label="真实数据（8 行业 ETF, 2012–2023）",
+           color="#d62728", edgecolor="k", lw=0.5)
+    ax.axhline(0, color="k", lw=0.8)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=30, ha="right", fontsize=8.5)
+    ax.set_ylabel("样本外年化夏普比率")
+    ax.set_title("六幕结论的真实数据验证：合成 vs 真实 ETF 的样本外夏普")
+    ax.legend(fontsize=9)
+    ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)

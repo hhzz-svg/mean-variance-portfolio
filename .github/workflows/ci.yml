@@ -37,3 +37,6 @@ jobs:
 
       - name: 第六幕：非线性收缩（LW2017 最优 Σ）+ 6 项自检
         run: python experiment_nls.py
+
+      - name: 尾声：真实 ETF 数据验证（合成 vs 真实）+ 6 项自检
+        run: python experiment_real.py

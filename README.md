@@ -12,7 +12,8 @@
 把量化金融最经典的资产配置问题 —— **Markowitz 均值-方差模型** —— 建成一个**双目标规划**
 （同时 `max μᵀw` 收益、`min wᵀΣw` 风险），从**矩阵算法**视角完整求解，再用六个互相衔接的
 实验把它"打碎再拼好"：样本外回测暴露估计误差 → 随机矩阵理论修 Σ → bootstrap 检验显著性
-→ Bayes-Stein/Black-Litterman 修 μ → 维数扫描找出适用边界 → 非线性收缩给出理论最优 Σ。
+→ Bayes-Stein/Black-Litterman 修 μ → 维数扫描找出适用边界 → 非线性收缩给出理论最优 Σ，
+最后把全部结论搬到**真实美股 ETF** 上验证（复制率 89%）。
 
 ![样本外累计净值](figures/backtest_wealth.png)
 
@@ -40,6 +41,10 @@ sweeps the universe from 8 to 200 assets and exhibits the **phase transition** w
 sample covariance collapses and RMT clipping is fully redeemed. Act 6 closes the covariance
 thread with **Ledoit–Wolf (2020) analytical nonlinear shrinkage** — the L2-optimal estimator —
 and a single "shrinkage-function" plot that unifies every covariance method on one axis.
+Finally, an **epilogue replays all six acts on 8 real US sector ETFs** (2012–2023): the
+conclusions hold with an **89% replication rate** — 1/N still wins, sample-tangency still
+explodes (3370% turnover, −3206% drawdown), only hindsight-μ beats 1/N and even that isn't
+significant. The findings come from the structure of the problem, not the synthetic data.
 
 ```bash
 pip install -r requirements.txt
@@ -49,6 +54,7 @@ python experiment_covariance.py  # Act 3 — covariance shootout (RMT) + bootstr
 python experiment_mu_shrinkage.py # Act 4 — Bayes-Stein & Black-Litterman for mu + 8 self-checks
 python experiment_dimension.py   # Act 5 — dimension sweep n=8..200, the RMT redemption + 6 self-checks
 python experiment_nls.py         # Act 6 — analytical nonlinear shrinkage, the optimal Sigma + 6 self-checks
+python experiment_real.py        # Epilogue — replay on real sector ETFs + 6 self-checks
 ```
 
 Full math derivation (in Chinese): [docs/derivation.pdf](docs/derivation.pdf).
@@ -207,6 +213,30 @@ Epanechnikov 核估样本谱密度 + 其 Hilbert 变换解析式 + oracle 收缩
 也不像 RMT 那样在低维误伤真信号。条件数中位数 n=200 时从样本的 10994 压到 217。
 **理论最优 + 无需调参 + 全维度稳健**，为协方差估计这条线画上句号。
 
+### 尾声 · 真实数据验证：结论搬到真实市场还成立吗？
+
+前六幕全在合成因子数据上完成。把**同一套协议、同一组策略**原封不动搬到 8 只真实美股
+行业 ETF（XLK/XLF/XLE/XLV/XLP/XLY/XLI/XLU，2012–2023，[Yahoo Finance](build_real_data.py)）上：
+
+| 策略 | 真实夏普 | Δ vs 1/N (p) | 合成夏普 | 换手 | 真实最大回撤 |
+|---|---|---|---|---|---|
+| 等权 1/N | **0.62** | — | 0.45 | 0% | −37% |
+| GMV（样本/收缩/NLS） | 0.46 / 0.50 / 0.47 | −0.12~−0.16 (≈0.4) | 0.18~0.20 | ~14% | −33% |
+| 切点（样本μ,Σ） | −0.01 | −0.63 (0.08) | −0.17 | **3370%** | **−3206%** |
+| 切点（JS μ / BL μ） | 0.21 / 0.62 | −0.41 / −0.00 | 0.40 / 0.45 | 547% / 0% | −100% / −37% |
+| 事后切点（全样本μ，作弊） | **0.98** | +0.36 (0.18) | 0.49 | 22% | −25% |
+
+![合成 vs 真实](figures/real_vs_synth.png)
+
+**六幕结论的复制率 89%（相对 1/N 的方向 8/9 一致）**：
+- **1/N 在真实数据上依旧称王**（0.62，"诚实"策略里最高）——DeMiguel 完美复制；
+- **切点（样本μ）在真实市场爆得更惨**：换手 3370%、回撤 −3206%，估计误差的代价比合成数据更触目惊心；
+- **修 Σ（GMV 各版本）全簇在 1/N 之下**、**修 μ（JS/BL）把切点往 1/N 拉**——方法学结论照搬成立；
+- **唯一明显超过 1/N 的是用了未来信息的"事后 μ"（0.98），但 p=0.18 仍不显著**——"连作弊都难证显著"在真实数据上同样成立。
+
+真实数据整体夏普更高（2012–2023 是大牛市），但**相对排名与合成数据高度吻合**——说明六幕的结论
+来自均值-方差问题的结构本身，而非合成数据的特例。这给整个项目补上了最后一块拼图。
+
 ---
 
 ## 如何运行
@@ -233,7 +263,11 @@ python experiment_dimension.py
 # 7. 第六幕——非线性收缩（LW2017），出 3 张图、导出 nls_summary.json
 python experiment_nls.py
 
-# 8.（可选）编译中文数学推导 PDF（需 xelatex，运行两遍以生成目录/交叉引用）
+# 8. 尾声——真实 ETF 数据验证，出 3 张图、导出 real_summary.json
+#    （data/returns_real.csv 已入库；重新下载数据：python build_real_data.py，需联网）
+python experiment_real.py
+
+# 9.（可选）编译中文数学推导 PDF（需 xelatex，运行两遍以生成目录/交叉引用）
 cd docs && xelatex derivation.tex && xelatex derivation.tex
 ```
 
@@ -254,6 +288,8 @@ cd docs && xelatex derivation.tex && xelatex derivation.tex
 ├── experiment_mu_shrinkage.py  第四幕：μ 收缩（Bayes-Stein/BL）+ φ 扫描 + 自检
 ├── experiment_dimension.py     第五幕：维数扫描 n=8..200（RMT 翻案）+ 自检
 ├── experiment_nls.py           第六幕：非线性收缩（LW2017 最优 Σ）+ 收缩函数图 + 自检
+├── experiment_real.py          尾声：真实 ETF 数据验证（合成 vs 真实）+ 自检
+├── build_real_data.py          真实数据下载+构建（Yahoo Finance，溯源用，需联网）
 ├── src/
 │   ├── generate_data.py        三因子模型合成收益率（8 资产 + 任意 n 宇宙，含真实 μ）
 │   ├── data_utils.py           μ/Σ 估计：LW 收缩、MP 裁剪、PCA 因子、JS 收缩、BL 先验、NLS
@@ -262,16 +298,10 @@ cd docs && xelatex derivation.tex && xelatex derivation.tex
 │   ├── backtest.py             样本外滚动回测引擎 + 策略注册表（可插拔 μ/Σ 估计量）
 │   ├── bootstrap.py            circular block bootstrap（联合重采、夏普差检验）
 │   ├── metrics.py              收益/风险/夏普 + 回撤/换手/年化统计
-│   └── plots.py                全部图像绘制（20 张）
-├── figures/                    20 张输出图（运行后生成）
-├── results/
-│   ├── summary.json            样本内关键结果 + 自检
-│   ├── backtest_summary.json   样本外绩效 + 自检
-│   ├── covariance_summary.json 协方差擂台 + bootstrap 推断 + 自检
-│   ├── mu_summary.json         μ 收缩绩效 + φ 扫描 + 自检
-│   ├── dimension_summary.json  维数扫描 + 自检
-│   └── nls_summary.json        非线性收缩擂台 + 维数扫描 + 自检
-├── data/                       合成日收益率 CSV（运行后生成）
+│   └── plots.py                全部图像绘制（23 张）
+├── figures/                    23 张输出图（运行后生成）
+├── results/                    7 份 *_summary.json（各实验结果 + 自检）
+├── data/                       合成 + 真实 ETF 日收益率 CSV
 └── docs/
     ├── derivation.tex          中文数学推导（ctex + xelatex）
     └── derivation.pdf          编译产物
@@ -280,10 +310,10 @@ cd docs && xelatex derivation.tex && xelatex derivation.tex
 ## 交付物对应
 
 1. **数学推导（LaTeX）**：[docs/derivation.tex](docs/derivation.tex) → [docs/derivation.pdf](docs/derivation.pdf)
-2. **代码**：[main.py](main.py) + 六个实验驱动 + [src/](src/)（核心算法纯 numpy 从零实现，39 项数值自检）
-3. **图像**：[figures/](figures/) 共 20 张（样本内 5 + 回测 4 + 协方差/bootstrap 3 + μ 收缩 3 + 维数 2 + 非线性收缩 3）
-4. **现实问题落地**：从抽象矩阵优化到"如何配一篮子股票"，六个实验依次回答：最优为何翻车 →
-   修 Σ 行不行 → 结论显著吗 → 修 μ 行不行 → 适用边界在哪 → 什么是理论最优 Σ
+2. **代码**：[main.py](main.py) + 六个实验驱动 + 真实数据验证 + [src/](src/)（核心算法纯 numpy 从零实现，45 项数值自检）
+3. **图像**：[figures/](figures/) 共 23 张（样本内 5 + 回测 4 + 协方差/bootstrap 3 + μ 收缩 3 + 维数 2 + 非线性收缩 3 + 真实数据 3）
+4. **现实问题落地**：从抽象矩阵优化到"如何配一篮子股票"，六幕依次回答"最优为何翻车 →
+   修 Σ 行不行 → 结论显著吗 → 修 μ 行不行 → 适用边界在哪 → 什么是理论最优 Σ"，尾声用真实 ETF 验证全部结论
 
 ## 参考
 

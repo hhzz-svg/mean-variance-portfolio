@@ -28,3 +28,6 @@ Thumbs.db
 # ---- 本地工具会话目录（非项目内容） ----
 .deep-copilot/
 .claude/
+
+# ---- 真实数据原始下载（可由 build_real_data.py 重新生成；只提交处理后的 returns_real.csv） ----
+data/real_raw/
