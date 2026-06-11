@@ -34,3 +34,6 @@ jobs:
 
       - name: 第五幕：维数扫描（RMT 翻案）+ 6 项自检
         run: python experiment_dimension.py
+
+      - name: 第六幕：非线性收缩（LW2017 最优 Σ）+ 6 项自检
+        run: python experiment_nls.py

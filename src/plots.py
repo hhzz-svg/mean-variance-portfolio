@@ -202,6 +202,8 @@ _BT_COLORS = {
     "切点（样本μ）": "#9467bd",
     "切点（James-Steinμ）": "#e7ba52",
     "切点（均衡μ·BL先验）": "#393b79",
+    "GMV（NLS）": "#1f77b4",
+    "切点（NLS）": "#aec7e8",
 }
 
 
@@ -529,7 +531,8 @@ def plot_dimension_phase(path, n_list, vol_dict: dict, cond_dict: dict,
     cond_dict: {Σ估计量: 各 n 的条件数中位数}；vol_1n: 等权参照（可选）。"""
     n_arr = np.asarray(n_list, dtype=float)
     colors = {"样本协方差 S": "#d62728", "Ledoit-Wolf 收缩": "#2ca02c",
-              "RMT 裁剪": "#8c564b", "PCA 因子": "#e377c2"}
+              "RMT 裁剪": "#8c564b", "PCA 因子": "#e377c2",
+              "LW2017 非线性": "#1f77b4"}
     fig, axes = plt.subplots(1, 2, figsize=(12.6, 5.0))
 
     # (a) GMV 样本外实现波动（GMV 的目标就是最小化它 → 直接度量 Σ̂ 质量）
@@ -560,6 +563,44 @@ def plot_dimension_phase(path, n_list, vol_dict: dict, cond_dict: dict,
     axes[1].legend(fontsize=8.5)
     axes[1].grid(alpha=0.3, which="both")
 
+    fig.tight_layout()
+    fig.savefig(path)
+    plt.close(fig)
+
+
+# --------------------------------------------------------------------------
+# 图J（第六幕）：收缩函数——四种方法对样本特征值做了什么
+# --------------------------------------------------------------------------
+def plot_shrinkage_functions(path, maps: dict, n_assets, T):
+    """maps: 有序 {方法: (λ_raw, λ_shrunk)}，均为协方差特征值（同一窗口）。
+
+    把"线性收缩=斜线、RMT 裁剪=台阶、非线性收缩=最优曲线"在一张图上并置：
+    横轴样本特征值，纵轴收缩后特征值，对角虚线 y=x 为"不收缩"基准。
+    """
+    style = {
+        "样本（不收缩）": ("#d62728", "o", "-"),
+        "LW2004 线性收缩": ("#2ca02c", "s", "-"),
+        "RMT 裁剪": ("#8c564b", "^", "-"),
+        "LW2017 非线性收缩": ("#1f77b4", "D", "-"),
+    }
+    fig, ax = plt.subplots(figsize=(7.8, 6.4))
+    lam_all = np.concatenate([np.asarray(v[0]) for v in maps.values()])
+    lo, hi = lam_all.min() * 0.7, lam_all.max() * 1.3
+    ax.plot([lo, hi], [lo, hi], "--", color="#999", lw=1.4, label="y=x（不收缩）")
+    for lab, (lr, ls) in maps.items():
+        lr = np.asarray(lr); ls = np.asarray(ls)
+        order = np.argsort(lr)
+        c, mk, lsty = style.get(lab, ("#333", "o", "-"))
+        ax.plot(lr[order], ls[order], lsty, marker=mk, ms=4, lw=1.6,
+                color=c, alpha=0.85, label=lab)
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel("样本协方差特征值 λ（对数轴）")
+    ax.set_ylabel("收缩后特征值 d（对数轴）")
+    ax.set_title(f"收缩函数：四种方法如何改造谱（n={n_assets}, T={T}, q={n_assets/T:.2f}）\n"
+                 "非线性收缩抬高小特征值、压低大特征值，连续逼近最优")
+    ax.legend(fontsize=9, loc="upper left")
+    ax.grid(alpha=0.3, which="both")
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)

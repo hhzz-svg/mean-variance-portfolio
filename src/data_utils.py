@@ -283,3 +283,58 @@ def equilibrium_mu(returns: np.ndarray, rf_daily: float) -> tuple[np.ndarray, di
 
     pi = rf_daily + delta * (Sigma @ w_eq)
     return pi, {"delta": float(delta)}
+
+
+def nls_covariance(returns: np.ndarray) -> tuple[np.ndarray, dict]:
+    """Ledoit-Wolf (2020) 解析非线性收缩（Analytical Nonlinear Shrinkage）。
+
+    线性收缩（LW2004）把所有特征值朝同一个常数拉，RMT 裁剪把噪声特征值压平为
+    台阶——两者都是"一刀切"。非线性收缩则按 Marchenko-Pastur 理论给**每个**样本
+    特征值施加一个最优的、随其大小连续变化的缩放：小特征值被抬高、大特征值被压低，
+    缩放幅度由样本谱密度及其 Hilbert 变换决定。这是 L2 意义下最优的旋转等变估计量。
+
+    算法（仅特征值变换，特征向量不变；p≤n 分支，本项目恒满足）：
+      1. S = Xc'Xc/T，特征分解 S = U diag(λ) Uᵀ；
+      2. 用 Epanechnikov 核（带宽 h=n^{-1/3}，变量带宽 ∝ λ）估样本谱密度 f̃
+         与其 Hilbert 变换 H̃f；
+      3. 收缩特征值
+            d̃ᵢ = λᵢ / [ (π·c·λᵢ·f̃ᵢ)² + (1 − c − π·c·λᵢ·H̃f̃ᵢ)² ],  c = p/n；
+      4. Σ_NLS = U diag(d̃) Uᵀ。
+
+    参考：Ledoit & Wolf (2020), "Analytical Nonlinear Shrinkage of Large-Dimensional
+    Covariance Matrices", Annals of Statistics 48(5).
+
+    返回 (Sigma_nls, info)，info 含 eigvals_raw / eigvals_shrunk（供收缩函数作图）。
+    """
+    X = np.asarray(returns, dtype=float)
+    T, p = X.shape
+    Xc = X - X.mean(axis=0, keepdims=True)
+    S = (Xc.T @ Xc) / T
+    lam, U = np.linalg.eigh(S)                         # 升序特征值
+    lam = np.maximum(lam, 0.0)
+
+    c = p / T
+    h = T ** (-1.0 / 3.0)
+    # 变量带宽：H_ij = h·λ_j；x_ij = (λ_i − λ_j)/H_ij
+    Hj = h * lam[None, :]                              # (p, p)，按列 = h·λ_j
+    x = (lam[:, None] - lam[None, :]) / Hj
+
+    # Epanechnikov 核（支撑 |x|<√5）的密度估计 f̃ᵢ = (1/p)Σ_j K_h(...)
+    sqrt5 = np.sqrt(5.0)
+    epan = np.maximum(1.0 - x ** 2 / 5.0, 0.0)
+    ftilde = (3.0 / (4.0 * sqrt5)) * np.mean(epan / Hj, axis=1)
+
+    # Epanechnikov 核的 Hilbert 变换（解析式）
+    with np.errstate(divide="ignore", invalid="ignore"):
+        Hf = ((-3.0 / (10.0 * np.pi)) * x
+              + (3.0 / (4.0 * sqrt5 * np.pi)) * (1.0 - x ** 2 / 5.0)
+              * np.log(np.abs((sqrt5 - x) / (sqrt5 + x))))
+    edge = np.abs(x) == sqrt5
+    Hf[edge] = (-3.0 / (10.0 * np.pi)) * x[edge]
+    Hftilde = np.mean(Hf / Hj, axis=1)
+
+    denom = (np.pi * c * lam * ftilde) ** 2 + (1.0 - c - np.pi * c * lam * Hftilde) ** 2
+    dtilde = np.where(denom > 0, lam / denom, lam)
+
+    Sigma = (U * dtilde) @ U.T
+    return Sigma, {"eigvals_raw": lam, "eigvals_shrunk": dtilde}

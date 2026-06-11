@@ -10,9 +10,9 @@
 ![Reproducible](https://img.shields.io/badge/seed-fixed%20·%20reproducible-success)
 
 把量化金融最经典的资产配置问题 —— **Markowitz 均值-方差模型** —— 建成一个**双目标规划**
-（同时 `max μᵀw` 收益、`min wᵀΣw` 风险），从**矩阵算法**视角完整求解，再用五个互相衔接的
+（同时 `max μᵀw` 收益、`min wᵀΣw` 风险），从**矩阵算法**视角完整求解，再用六个互相衔接的
 实验把它"打碎再拼好"：样本外回测暴露估计误差 → 随机矩阵理论修 Σ → bootstrap 检验显著性
-→ Bayes-Stein/Black-Litterman 修 μ → 维数扫描找出每种方法的适用边界。
+→ Bayes-Stein/Black-Litterman 修 μ → 维数扫描找出适用边界 → 非线性收缩给出理论最优 Σ。
 
 ![样本外累计净值](figures/backtest_wealth.png)
 
@@ -37,7 +37,9 @@ on a single 9-year path, *nothing* beats 1/N significantly (not even the oracle)
 treats μ itself with **Jorion's Bayes–Stein shrinkage** and the **Black–Litterman equilibrium
 prior** (the no-view BL = market portfolio theorem is verified to machine precision); act 5
 sweeps the universe from 8 to 200 assets and exhibits the **phase transition** where the
-sample covariance collapses and RMT clipping is fully redeemed.
+sample covariance collapses and RMT clipping is fully redeemed. Act 6 closes the covariance
+thread with **Ledoit–Wolf (2020) analytical nonlinear shrinkage** — the L2-optimal estimator —
+and a single "shrinkage-function" plot that unifies every covariance method on one axis.
 
 ```bash
 pip install -r requirements.txt
@@ -46,13 +48,14 @@ python experiment_backtest.py    # Act 2 — out-of-sample walk-forward backtest
 python experiment_covariance.py  # Act 3 — covariance shootout (RMT) + bootstrap inference + 8 self-checks
 python experiment_mu_shrinkage.py # Act 4 — Bayes-Stein & Black-Litterman for mu + 8 self-checks
 python experiment_dimension.py   # Act 5 — dimension sweep n=8..200, the RMT redemption + 6 self-checks
+python experiment_nls.py         # Act 6 — analytical nonlinear shrinkage, the optimal Sigma + 6 self-checks
 ```
 
 Full math derivation (in Chinese): [docs/derivation.pdf](docs/derivation.pdf).
 
 ---
 
-## 五幕故事
+## 六幕故事
 
 ### 第一幕 · 样本内：把优化问题手推手写一遍
 
@@ -176,6 +179,34 @@ walk-forward 协议下让四种协方差估计同台（样本 / Ledoit-Wolf / **
 裁剪与 PCA 因子只保留 O(1) 个信号特征对，对维数免疫，波动一路降到 9%。第三幕与第五幕
 合起来才是 RMT 的完整画像：**q 小时是手术刀误伤，q 大时是救命稻草。**
 
+### 第六幕 · 最优协方差：Ledoit-Wolf 2017 非线性收缩
+
+协方差线索的收尾：什么是"最好的" Σ̂？线性收缩把所有特征值朝同一个数拉、RMT 把噪声
+压成台阶——都是一刀切。**非线性收缩**按 MP 理论给每个特征值施加最优的、连续变化的缩放，
+是 L2 意义下最优的旋转等变估计量（特征向量不动，只最优地重标定谱）。一张"收缩函数图"
+把四种方法对谱的改造并置：
+
+![收缩函数](figures/nls_shrinkage_functions.png)
+
+样本=贴着 `y=x`、LW2004=平移直线、RMT=台阶、**NLS=平滑最优曲线**——抬高被噪声压低的
+小特征值、轻压被高估的大特征值，连续逼近 Oracle。用纯 numpy 从零实现：协方差特征分解 +
+Epanechnikov 核估样本谱密度 + 其 Hilbert 变换解析式 + oracle 收缩公式。
+
+效果（GMV 样本外实现波动，纯度量 Σ̂ 质量）：
+
+| n (q) | 样本Σ | 收缩Σ | RMT | 因子 | **NLS** |
+|---|---|---|---|---|---|
+| 8 (0.03) | 16.12% | 16.09% | 16.17% | 16.69% | **16.08%** |
+| 100 (0.40) | 13.81% | 13.03% | 11.99% | 11.46% | **11.83%** |
+| 200 (0.79) | 17.47% ↑ | 11.85% | 9.14% | 8.75% | **9.39%** |
+
+![NLS 维数相变](figures/nls_dimension_phase.png)
+
+**NLS 是"从不更差"的估计量**：低维时贴着样本协方差（甚至略优，n=8 是全场 GMV 最低波动），
+高维时把样本的崩溃挡下、紧贴因子/RMT 的最优表现——而它不需要像因子模型那样假设因子数、
+也不像 RMT 那样在低维误伤真信号。条件数中位数 n=200 时从样本的 10994 压到 217。
+**理论最优 + 无需调参 + 全维度稳健**，为协方差估计这条线画上句号。
+
 ---
 
 ## 如何运行
@@ -199,7 +230,10 @@ python experiment_mu_shrinkage.py
 # 6. 第五幕——维数扫描 n=8..200，出 2 张图、导出 dimension_summary.json
 python experiment_dimension.py
 
-# 7.（可选）编译中文数学推导 PDF（需 xelatex，运行两遍以生成目录/交叉引用）
+# 7. 第六幕——非线性收缩（LW2017），出 3 张图、导出 nls_summary.json
+python experiment_nls.py
+
+# 8.（可选）编译中文数学推导 PDF（需 xelatex，运行两遍以生成目录/交叉引用）
 cd docs && xelatex derivation.tex && xelatex derivation.tex
 ```
 
@@ -219,22 +253,24 @@ cd docs && xelatex derivation.tex && xelatex derivation.tex
 ├── experiment_covariance.py    第三幕：协方差擂台（RMT）+ bootstrap 显著性 + 自检
 ├── experiment_mu_shrinkage.py  第四幕：μ 收缩（Bayes-Stein/BL）+ φ 扫描 + 自检
 ├── experiment_dimension.py     第五幕：维数扫描 n=8..200（RMT 翻案）+ 自检
+├── experiment_nls.py           第六幕：非线性收缩（LW2017 最优 Σ）+ 收缩函数图 + 自检
 ├── src/
 │   ├── generate_data.py        三因子模型合成收益率（8 资产 + 任意 n 宇宙，含真实 μ）
-│   ├── data_utils.py           μ/Σ 估计：LW 收缩、MP 裁剪、PCA 因子、JS 收缩、BL 先验
+│   ├── data_utils.py           μ/Σ 估计：LW 收缩、MP 裁剪、PCA 因子、JS 收缩、BL 先验、NLS
 │   ├── analytic.py             解析法（Cholesky、闭式前沿、GMV、切点）
 │   ├── numeric.py              数值法（投影梯度下降 + 单纯形投影）
 │   ├── backtest.py             样本外滚动回测引擎 + 策略注册表（可插拔 μ/Σ 估计量）
 │   ├── bootstrap.py            circular block bootstrap（联合重采、夏普差检验）
 │   ├── metrics.py              收益/风险/夏普 + 回撤/换手/年化统计
-│   └── plots.py                全部图像绘制（17 张）
-├── figures/                    17 张输出图（运行后生成）
+│   └── plots.py                全部图像绘制（20 张）
+├── figures/                    20 张输出图（运行后生成）
 ├── results/
 │   ├── summary.json            样本内关键结果 + 自检
 │   ├── backtest_summary.json   样本外绩效 + 自检
 │   ├── covariance_summary.json 协方差擂台 + bootstrap 推断 + 自检
 │   ├── mu_summary.json         μ 收缩绩效 + φ 扫描 + 自检
-│   └── dimension_summary.json  维数扫描 + 自检
+│   ├── dimension_summary.json  维数扫描 + 自检
+│   └── nls_summary.json        非线性收缩擂台 + 维数扫描 + 自检
 ├── data/                       合成日收益率 CSV（运行后生成）
 └── docs/
     ├── derivation.tex          中文数学推导（ctex + xelatex）
@@ -244,10 +280,10 @@ cd docs && xelatex derivation.tex && xelatex derivation.tex
 ## 交付物对应
 
 1. **数学推导（LaTeX）**：[docs/derivation.tex](docs/derivation.tex) → [docs/derivation.pdf](docs/derivation.pdf)
-2. **代码**：[main.py](main.py) + 五个实验驱动 + [src/](src/)（核心算法纯 numpy 从零实现，33 项数值自检）
-3. **图像**：[figures/](figures/) 共 17 张（样本内 5 + 回测 4 + 协方差/bootstrap 3 + μ 收缩 3 + 维数 2）
-4. **现实问题落地**：从抽象矩阵优化到"如何配一篮子股票"，五个实验依次回答：最优为何翻车 →
-   修 Σ 行不行 → 结论显著吗 → 修 μ 行不行 → 每种方法的适用边界在哪
+2. **代码**：[main.py](main.py) + 六个实验驱动 + [src/](src/)（核心算法纯 numpy 从零实现，39 项数值自检）
+3. **图像**：[figures/](figures/) 共 20 张（样本内 5 + 回测 4 + 协方差/bootstrap 3 + μ 收缩 3 + 维数 2 + 非线性收缩 3）
+4. **现实问题落地**：从抽象矩阵优化到"如何配一篮子股票"，六个实验依次回答：最优为何翻车 →
+   修 Σ 行不行 → 结论显著吗 → 修 μ 行不行 → 适用边界在哪 → 什么是理论最优 Σ
 
 ## 参考
 
@@ -259,6 +295,7 @@ cd docs && xelatex derivation.tex && xelatex derivation.tex
 - Politis & Romano (1992), *A circular block-resampling procedure for stationary data*.
 - Jorion (1986), *Bayes-Stein estimation for portfolio analysis*.
 - Black & Litterman (1992), *Global Portfolio Optimization*.
+- Ledoit & Wolf (2020), *Analytical Nonlinear Shrinkage of Large-Dimensional Covariance Matrices*.
 
 ## License
 
