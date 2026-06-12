@@ -9,6 +9,8 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Reproducible](https://img.shields.io/badge/seed-fixed%20·%20reproducible-success)
 
+**🌐 语言**：中文（本文） · **[English](README_EN.md)** ｜ **📓 [总览 Notebook](overview.ipynb)**（一个文件读完七幕）
+
 把量化金融最经典的资产配置问题 —— **Markowitz 均值-方差模型** —— 建成一个**双目标规划**
 （同时 `max μᵀw` 收益、`min wᵀΣw` 风险），从**矩阵算法**视角完整求解，再用六个互相衔接的
 实验把它"打碎再拼好"：样本外回测暴露估计误差 → 随机矩阵理论修 Σ → bootstrap 检验显著性
@@ -19,6 +21,41 @@
 
 > **一图看懂**：用真实 μ 的 Oracle 组合（青色）一骑绝尘，但现实中 μ 要靠估计——朴素的等权
 > 1/N（灰色）反而跑赢所有"优化"出来的组合。这正是本项目的故事主线。
+
+## 实战决策图：该用哪种估计 / 策略
+
+把七幕的结论浓缩成一张"遇到问题怎么选"的流程图（这正是六个实验得出的可带走结论）：
+
+```mermaid
+flowchart TD
+    A[要配置一篮子资产] --> B{需要预测<br/>期望收益 μ 吗？}
+    B -->|不需要,只想<br/>分散风险| C{资产数 n 相对<br/>样本期 T 大吗?}
+    B -->|需要,想<br/>择优超配| D[⚠️ 切点/最大夏普组合]
+
+    C -->|n/T 小 &lt;0.1<br/>低维| E[样本协方差 Σ<br/>已够好]
+    C -->|n/T 中等<br/>0.1~0.5| F[Ledoit-Wolf 收缩<br/>或 NLS]
+    C -->|n/T 大 →1<br/>高维| G[✅ 非线性收缩 NLS<br/>或因子模型<br/>样本协方差会崩]
+
+    D --> H{μ 怎么来?}
+    H -->|纯历史样本均值| I[❌ 样本外必爆<br/>换手/回撤失控]
+    H -->|向均衡/GMV 收缩| J[Bayes-Stein / Black-Litterman<br/>方向对,但仍难赢 1/N]
+    H -->|没有可靠观点| K[✅ 退回等权 1/N<br/>无观点的 BL = 持有市场]
+
+    E --> Z[📊 回测后务必<br/>block bootstrap 检验<br/>差距可能不显著]
+    F --> Z
+    G --> Z
+    J --> Z
+    K --> Z
+
+    style D fill:#ffe0e0
+    style I fill:#ffd0d0
+    style G fill:#d0f0d0
+    style K fill:#d0f0d0
+    style Z fill:#fff0c0
+```
+
+**一句话总结**：风险（Σ）能估好、且越高维越该用非线性收缩；收益（μ）几乎估不好，
+所以纯优化的"最优"组合样本外往往输给朴素的等权 1/N——而且这个差距常常连统计显著性都达不到。
 
 ---
 

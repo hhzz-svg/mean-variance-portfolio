@@ -3,3 +3,6 @@ matplotlib>=3.7
 pandas>=2.0
 # scipy 仅用于 main.py 中对自研数值解的独立交叉验证（核心求解器不依赖它）
 scipy>=1.10
+# 以下仅用于（可选）重新执行 overview.ipynb 总览 Notebook；跑实验脚本不需要
+# jupyter
+# nbconvert
