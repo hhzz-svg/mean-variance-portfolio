@@ -12,7 +12,7 @@
 **🌐 语言**：中文（本文） · **[English](README_EN.md)** ｜ **📓 [总览 Notebook](overview.ipynb)**（一个文件读完七幕）
 
 <p align="center">
-  <img src="docs/images/markowitz-matrix-algorithms-poster.png" alt="Markowitz matrix algorithms portfolio optimization poster" width="100%">
+  <img src="docs/images/social-preview.jpg" alt="Markowitz Matrix Algorithms social preview cover" width="100%">
 </p>
 
 把量化金融最经典的资产配置问题 —— **Markowitz 均值-方差模型** —— 建成一个**双目标规划**
