@@ -11,6 +11,10 @@
 
 **🌐 语言**：中文（本文） · **[English](README_EN.md)** ｜ **📓 [总览 Notebook](overview.ipynb)**（一个文件读完七幕）
 
+<p align="center">
+  <img src="docs/images/markowitz-matrix-algorithms-poster.png" alt="Markowitz matrix algorithms portfolio optimization poster" width="100%">
+</p>
+
 把量化金融最经典的资产配置问题 —— **Markowitz 均值-方差模型** —— 建成一个**双目标规划**
 （同时 `max μᵀw` 收益、`min wᵀΣw` 风险），从**矩阵算法**视角完整求解，再用六个互相衔接的
 实验把它"打碎再拼好"：样本外回测暴露估计误差 → 随机矩阵理论修 Σ → bootstrap 检验显著性
